@@ -48,5 +48,13 @@
     "paper-item": "^2.0.0",
     "paper-listbox": "^2.0.0",
     "px-modal": "^1.4.10"
+  },
+  "resolutions": {
+    "px-card": "^0.7.0",
+    "px-datetime-common": "^0.7.0",
+    "app-localize-behavior": "^1.0.0",
+    "px-calendar-picker": "^0.7.0",
+    "px-datetime-field": "^0.7.0",
+    "webcomponentsjs": "^v1.0.2"
   }
 }

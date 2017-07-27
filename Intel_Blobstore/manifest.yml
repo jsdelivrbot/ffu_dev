@@ -10,3 +10,4 @@ applications:
       BROKER_SERVICE_NAME: Intel-Blobstore
     services:
      - Intel-Blobstore
+     - dojo-uaa

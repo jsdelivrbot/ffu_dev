@@ -10,7 +10,7 @@
     "assetURL": "",
     "assetZoneId": "",
     "windServiceURL": "{URL of the microservice <your-name>-winddata-timeseries-service}, e.g.  https://your-name-winddata-timeseries-service.run.asw-usw02-pr.predix.io",
-    "redisServiceURL": "https://Intel-MVP-app.run.aws-usw02-pr.ice.predix.io",
+    "redisServiceURL": "https://backend-ui-app.run.aws-usw02-pr.ice.predix.io",
     "websocketServerURL": "/livestream",
     "rmdDatasourceURL": "{URL of your RMD datasource microservice}",
 	"inteltsqueryURL": "https://inteltsquery-preinterpretative-reverie.run.aws-usw02-pr.ice.predix.io",

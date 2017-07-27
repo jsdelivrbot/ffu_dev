@@ -1,0 +1,24 @@
+---
+applications:
+  - name: Backend-UI-app
+    buildpack: java-buildpack
+    memory: 512MB
+    path: target/mailNotification-0.0.1-SNAPSHOT.jar #make sure jar name matches artifactID and version
+    services:
+     - dojo-uaa   
+     - dojo-timeseries
+     - Intel-Asset-Service
+     - Intel-MVP-Redis
+     - mvp-acs
+
+env:
+    SPRING_PROFILES_ACTIVE : cloud,clouddev
+    predix_oauthClientId: Kent-Dojo-Client:IntelDojo
+    predix_oauthRestHost: https://61a46d35-834f-47fd-beea-5dd1c1c5bbec.predix-uaa.run.aws-usw02-pr.ice.predix.io
+    trustedIssuerIdsRegexPattern: ^https://(.*\\.)?61a46d35-834f-47fd-beea-5dd1c1c5bbec.predix-uaa.run.aws-usw02-pr.ice.predix.io/oauth/token$
+    accessTokenEndpointUrl: https://61a46d35-834f-47fd-beea-5dd1c1c5bbec.predix-uaa.run.aws-usw02-pr.ice.predix.io/oauth/token
+    predix_asset_name: Intel-Asset-Service
+    predix_timeseries_name: dojo-timeseries
+    clientId : Kent-Dojo-Client
+    clientSecret: IntelDojo
+    

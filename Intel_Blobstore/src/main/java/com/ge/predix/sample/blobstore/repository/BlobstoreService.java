@@ -227,7 +227,7 @@ public class BlobstoreService {
      *
      * @return List<BlobFile> List of Blobs
      */
-    public List<S3Object> get() {
+    public List<S3Object> get() throws Exception {
         List<S3Object> objs = new ArrayList<>();
         try {
             // Get the List from BlobStore
@@ -247,6 +247,7 @@ public class BlobstoreService {
         }
 
         return objs;
+    }
     }
 
 
