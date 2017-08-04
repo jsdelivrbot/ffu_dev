@@ -58,7 +58,7 @@ Element which draws lines series onto the chart
     is: 'px-vis-line-canvas',
 
     behaviors: [
-      PxVisBehaviorD3.canvas,
+      PxVisBehaviorD3.canvasContext,
       PxVisBehaviorD3.lineShared,
       PxVisBehaviorD3.axes,
       PxVisBehavior.sizing,
@@ -73,7 +73,8 @@ Element which draws lines series onto the chart
       PxVisBehaviorD3.domainUpdate,
       PxColorsBehavior.baseColors,
       PxVisBehavior.preventInitialDrawing,
-      PxVisBehavior.isAttached
+      PxVisBehavior.isAttached,
+      PxVisBehavior.polarData,
     ],
 
     /**
@@ -166,6 +167,11 @@ Element which draws lines series onto the chart
       drawDebounceTime: {
         type: Number,
         value: 20
+      },
+
+      strokeWidth: {
+        type: Number,
+        value: 1
       }
     },
 
@@ -201,6 +207,8 @@ Element which draws lines series onto the chart
      * @method drawElement
      */
     drawCanvas: function(allowCanvasClearing) {
+      this._progressiveRenderingCounter++;
+
       if(this.drawDebounceTime > 0) {
         this.debounce('drawCanvas',function() {
           this._drawCanvasDebounced(allowCanvasClearing);
@@ -213,13 +221,16 @@ Element which draws lines series onto the chart
     _drawCanvasDebounced: function(allowCanvasClearing) {
       if(this.domainChanged !== null &&
             this._doesObjHaveValues(this.completeSeriesConfig) &&
-            this._isAttached) {
-          var data = this.chartData;
-          // we need to wrap the data differently depending on if we are drawing many lines or just one line
+            this._isAttached &&
+            this.chartData) {
+
+          this._resetRenderingContext();
+
+          //create our line generator
           if(this.parallelCoordinates) {
             this._defineMultiLine(true);
           } else if(this.radialLine) {
-            this._defineRadialLine(true, this.multiPath);
+            this._defineRadialLine(true, this.multiPath, this.counterClockwise, this.useDegrees);
           } else {
             this._defineSingleLine(true);
           }
@@ -230,18 +241,18 @@ Element which draws lines series onto the chart
 
           // We need to track which lines we have drawn and which we want to draw.
           // If a line is not currently in our list, add it
-          if(!this.canvasContext._pxLinesSeries[this.seriesId]) {
-            this.canvasContext._pxLinesSeries[this.seriesId] = true;
-            this.canvasContext._pxLinesTotal += 1;
+          if(this.canvasContext._pxLinesSeries.indexOf(this.seriesId) === -1) {
+            this.canvasContext._pxLinesSeries.push(this.seriesId);
           }
 
           // if we have previously drawn the same number of lines as series, then let's start over; Clear the drawing canvas
-          if(this.canvasContext._pxLinesRedraw === this.canvasContext._pxLinesTotal) {
-            this.canvasContext._pxLinesRedraw = 0;
+          if(this.canvasContext._pxLinesRedraw >= this.canvasContext._pxLinesSeries.length) {
 
-            if(allowCanvasClearing) {
+            if(allowCanvasClearing && !this.canvasContext._pxLinesCleared) {
               // (x1,y1,x2,y2)
-              this.canvasContext.clearRect(-this.canvasContext._translation[0], -this.canvasContext._translation[1] , this.canvasContext.canvas.width, this.canvasContext.canvas.height);
+              this.canvasContext.pxClearCanvas();
+              //re add this serie since we're going to draw it now
+              this.canvasContext._pxLinesSeries.push(this.seriesId);
             }
           }
 
@@ -253,17 +264,17 @@ Element which draws lines series onto the chart
             this.drawClipPath();
           }
 
-          //Render data progressively
-          this.canvasContext.lineWidth = 1;
-          if(this.noCanvasProgressiveRendering || this.chartData.length < 5) {
-            this._renderAtOnce(data);
-          } else {
-            //get number of frames
-            var numberOfSeries = this.multiPath ? this.completeSeriesConfig[this.seriesId]['x'].length : Object.keys(this.completeSeriesConfig).length;
-            var frames = Math.ceil(Math.max(((this.chartData.length*numberOfSeries)/this.progressiveRenderingPointsPerFrame), this.progressiveRenderingMinimumFrames));
-            this._renderProgressively(frames);
+          if(this.chartData.length) {
+            this.canvasContext.lineWidth = this.strokeWidth;  //TODO make per series?
+            if(this.noCanvasProgressiveRendering) {
+              this._renderAtOnce(this.multiPath ? this.chartData : [this.chartData]);
+            } else {
+              //get number of frames
+              var numberOfSeries = this.multiPath ? this.completeSeriesConfig[this.seriesId]['x'].length : Object.keys(this.completeSeriesConfig).length;
+              var frames = Math.min(this.chartData.length, Math.ceil(Math.max(((this.chartData.length*numberOfSeries)/this.progressiveRenderingPointsPerFrame), this.progressiveRenderingMinimumFrames)));
+              this._renderProgressively(frames);
+            }
           }
-
           this.canvasContext._pxLinesRedraw += 1;
         }
     },
@@ -280,6 +291,8 @@ Element which draws lines series onto the chart
          If you load data that is not 100% 0, or change the chartData or axes on reload, doesnt happen.
          This if statement prevents clipPath from running under these circumstances and everything is fine
       */
+
+      //TODO: extend for polar
       if(this.chartData.length > 0 && this.completeSeriesConfig[this.seriesId]["x"].length > 0) {
         if(this.radialLine) {
           // Save seems required for Radar but breaks TS. Look into more.
@@ -340,12 +353,8 @@ Element which draws lines series onto the chart
     *
     */
     _renderAtOnce: function(data) {
-      //TODO:  migrate to use renderOneBatch
-      //data format
-      if(!this.parallelCoordinates && !this.radialLine) {
-        data = [data];
-      }
 
+      this.canvasContext._pxLinesCleared = false;
       if(this.gradientLine) {
         //if gradient, regardless of category or not
         // Iterate over our data:
@@ -389,10 +398,9 @@ Element which draws lines series onto the chart
           if(opacity !== 0) {
             this.line(data[i]);
           }
-          // Apply our styles and draw all the lines to the canvas
-          this.canvasContext.strokeStyle = this.rgbToRgba(this.completeSeriesConfig[this.seriesId]['color'], opacity);
-
         }
+        // Apply our styles and draw all the lines to the canvas
+        this.canvasContext.strokeStyle = this.rgbToRgba(this.completeSeriesConfig[this.seriesId]['color'], opacity);
         this.canvasContext.stroke();
 
         //clean up drawing
@@ -414,7 +422,9 @@ Element which draws lines series onto the chart
         'requestCounter': ++this._progressiveRenderingCounter,
         'size': Math.ceil(this.chartData.length/numberOfFrames),
         'numberOfFrames': numberOfFrames,
-        'offset': 0
+        'offset': 0,
+        'lastPointRenderedIndex': null,
+        'currentBatchStartIndex': 0
       };
 
       //make sure canvas is clean
@@ -458,19 +468,30 @@ Element which draws lines series onto the chart
         return;
       }
 
-      var d = this.chartData.slice(this._renderingContext.index * this._renderingContext.size - this._renderingContext.offset, (this._renderingContext.index + 1) * this._renderingContext.size);
+      this._renderingContext.currentBatchStartIndex = this._renderingContext.lastPointRenderedIndex;
+
+      //ensure weprepend the last defined point
+      var prevRenderedCount = this._renderingContext.index * this._renderingContext.size,
+          skipped = Math.max(prevRenderedCount - (this._renderingContext.lastPointRenderedIndex + 1), 0),
+          d;
 
       //if it's a single line make sure we can loop around it
-      if(!this.parallelCoordinates && !this.radialLine) {
+      if(!this.multiPath) {
+
+        //slice will end at the end of the array if the 'end' index is bigger
+        //than the chartdata length (last batch)
+        d = this.chartData.slice(this._renderingContext.lastPointRenderedIndex, (this._renderingContext.index + 1) * this._renderingContext.size + skipped);
         d = [d];
+      } else {
+
+        //we don't have to deal with prepending previous point and skipped
+        //points in multiline
+        d = this.chartData.slice(prevRenderedCount, (this._renderingContext.index + 1) * this._renderingContext.size);
       }
 
       this._renderOneBatch(d);
 
       this._renderingContext.index++;
-
-      //after first render add offset so that next line includes the previous last point to avoid gaps
-      this._renderingContext.offset = 1;
 
       if(this._renderingContext.index < this._renderingContext.numberOfFrames) {
           //continue processing
@@ -518,6 +539,7 @@ Element which draws lines series onto the chart
         this.canvasContext.strokeStyle = this.rgbToRgba(this.completeSeriesConfig[this.seriesId]['color'], opacity);
         this.canvasContext.stroke();
       }
+      this.canvasContext._pxLinesCleared = false;
     },
 
     /**
@@ -527,7 +549,6 @@ Element which draws lines series onto the chart
     _renderingEnded: function(progressive,numberOfFrames) {
       //restore our context for safety
       this.canvasContext.restore();
-      this._renderingContext = {};
 
       if(progressive) {
         this._progressiveRenderingCounter = 0;

@@ -1,6 +1,7 @@
 <link rel="import" href="../px-d3-imports/px-d3-imports.html" />
 <link rel="import" href="px-vis-imports.html" />
 <link rel="import" href="px-vis-behavior-common.html" />
+<link rel="import" href="px-vis-scheduler.html" />
 <script>
 
 var PxVisBehaviorD3 = PxVisBehaviorD3 || {};
@@ -19,6 +20,17 @@ var PxVisBehaviorD3 = PxVisBehaviorD3 || {};
 */
 PxVisBehaviorD3.svg = [{
   properties: {
+    /**
+    * svg is a holder for the d3 instantiated svg container to draw to.
+    * Must be set in ready and passed to all components so they know whom to draw to.
+    *
+    * @property svg
+    * @type Object
+    */
+    svg: {
+      type: Object,
+      notify: true
+    },
     /*
     *
     * The SVG element inside the chart - not a D3 selected element.
@@ -84,14 +96,14 @@ PxVisBehaviorD3.svg = [{
   /**
    * Draws the current svg into a canvas
    */
-  _drawSVGOnCanvas: function(canvas, callback, x, y) {
-    var svgData = this.pxSvgElem.outerHTML;
+  _drawSVGOnCanvas: function(canvas, elem, callback, x, y) {
+    var svgData = elem.outerHTML;
     x = x ? x : 0;
     y = y ? y : 0;
 
     //stupid IE can't get outerHTML of svg even though it's now a W3C spec
     if(!svgData) {
-      svgData = this._getSVGOuterHtml(this.pxSvgElem);
+      svgData = this._getSVGOuterHtml(elem);
     }
 
     //check if drawing an svg on canvas is ok
@@ -282,6 +294,21 @@ PxVisBehaviorD3.canvasContext = {
     canvasContext: {
       type: Object,
       notify:true
+    },
+
+    /**
+     * An array of the generated layers
+     *
+     */
+    canvasLayers: {
+      type: Object,
+      notify: true,
+      value: function() { return {}; }
+    },
+
+    canvasLayersConfig: {
+      type: Object,
+      value: function() { return {}; }
     }
   }
 };
@@ -313,9 +340,9 @@ PxVisBehaviorD3.canvas = [{
     '_renderToSvgChanged(renderToSvg)'
   ],
   _renderToSvgChanged: function(renderToSvg) {
-    if(this.renderToSvg && this.canvasContext) {
+    if(this.renderToSvg && this.canvasContext && this.canvasContext.pxClearCanvas) {
       //make sure the canvas cleans itself
-      this.canvasContext.clearCanvas();
+      this.canvasContext.pxClearCanvas();
     }
   }
 }, PxVisBehaviorD3.canvasContext]
@@ -346,9 +373,9 @@ PxVisBehaviorD3.renderToCanvas = {
     '_renderToCanvasChanged(renderToCanvas)'
   ],
   _renderToCanvasChanged: function(renderToCanvas) {
-    if(!this.renderToCanvas && this.canvasContext) {
+    if(!this.renderToCanvas && this.canvasContext && this.canvasContext.pxClearCanvas) {
       //make sure the canvas cleans itself
-      this.canvasContext.clearCanvas();
+      this.canvasContext.pxClearCanvas();
     }
   }
 };
@@ -358,7 +385,7 @@ PxVisBehaviorD3.renderToCanvas = {
     PxVisBehaviorD3.axes
 
     Description:
-    Polymer behavior that provides the x,y axes and domains for d3 components.
+    Polymer behavior that provides the x,y and _isMultiY properties for d3 components.
 
     Dependencies:
     - D3.js
@@ -375,7 +402,7 @@ PxVisBehaviorD3.axes = {
      * See: https://github.com/d3/d3/blob/master/API.md#scales-d3-scale
      *
      * @property x
-     * @type Object
+     * @type Function
      */
     x: {
       type: Object,
@@ -389,7 +416,7 @@ PxVisBehaviorD3.axes = {
      * See: https://github.com/d3/d3/blob/master/API.md#scales-d3-scale
      *
      * @property y
-     * @type Object
+     * @type {Object|Function}
      */
     y: {
       type: Object,
@@ -491,17 +518,49 @@ PxVisBehaviorD3.domainUpdateNotify = {
 
 /*
     Name:
+    PxVisBehaviorD3.axisOrientation
+
+    Description:
+    Polymer behavior that provides the orientation property for d3 components.
+
+    Dependencies:
+    - D3.js
+
+    @polymerBehavior PxVisBehaviorD3.axisOrientation
+*/
+PxVisBehaviorD3.axisOrientation = {
+  properties: {
+    /**
+     * Defines which side the axis should be on.
+     *  - 'left'
+     *  - 'right'
+     *  - 'bottom'
+     *  - 'top'
+     *
+     * @property orientation
+     * @type String
+     * @default bottom
+     */
+    orientation: {
+      type: String,
+      value: 'bottom'
+    }
+  }
+};
+
+/*
+    Name:
     PxVisBehaviorD3.axis
 
     Description:
-    Polymer behavior that provides the axis and domain properties for d3 components.
+    Polymer behavior that provides the axis and orientation properties for d3 components.
 
     Dependencies:
     - D3.js
 
     @polymerBehavior PxVisBehaviorD3.axis
 */
-PxVisBehaviorD3.axis = {
+PxVisBehaviorD3.axis = [{
   properties: {
     /**
      * axis is a general holder for the d3 instantiated scale object
@@ -532,7 +591,7 @@ PxVisBehaviorD3.axis = {
       value: 'bottom',
     }
   }
-};
+}, PxVisBehaviorD3.axisOrientation];
 
 /*
     Name:
@@ -1089,6 +1148,29 @@ PxVisBehaviorD3.interpolationFunction = {
   }
 };
 
+/*
+    Name:
+    PxVisBehaviorD3.lineRadiusLimit
+
+    Description:
+    Polymer behavior that provides the lineRadiusLimit property
+
+    Dependencies:
+    - D3.js
+
+    @polymerBehavior PxVisBehaviorD3.lineRadiusLimit
+*/
+PxVisBehaviorD3.lineRadiusLimit = {
+  properties: {
+    /**
+    * sets a minimum value for the line amplitude. Points less than the lineRadiusLimit will be set to the limit
+    *
+    */
+    lineRadiusLimit: {
+      type: Number
+    }
+  }
+};
 
 /*
     Name:
@@ -1116,6 +1198,9 @@ PxVisBehaviorD3.radialLineGenerator = [{
     /**
     * sets a minimum value for the line amplitude. Points less than the lineRadiusLimit will be set to the limit
     *
+    * Essentially, it moves a point that is past the center into the visible axis area on the opposite side to terminating inside the clip path area, thereby also changing the angle of those connecting lines
+    *
+    * Note: radius on a radialLine is equivelent to y on a cartesean line.
     */
     lineRadiusLimit: {
       type: Number
@@ -1165,7 +1250,7 @@ PxVisBehaviorD3.radialLineGenerator = [{
         //for each datapoint, iterate through the dimensions
         return path(dims.map(function(p) {
           //check that we have data; if not, return false so it doesnt draw a line
-          if(typeof(d[p]) === 'undefined' || d[p] === null) {
+          if(!d || typeof(d[p]) === 'undefined' || d[p] === null) {
             return false
           }
           //return [x,y] to path: x is ordinal based on dim; get the y-scale for the dim and use that particular scale on the data
@@ -1214,7 +1299,7 @@ PxVisBehaviorD3.radialLineGenerator = [{
     }
     this.set('line', line);
   }
-}, PxVisBehavior.completeSeriesConfig, PxVisBehavior.dataset, PxVisBehaviorD3.interpolationFunction];
+}, PxVisBehavior.completeSeriesConfig, PxVisBehavior.dataset, PxVisBehaviorD3.interpolationFunction, PxVisBehaviorD3.lineRadiusLimit];
 
 
 /*
@@ -1304,7 +1389,24 @@ PxVisBehaviorD3.lineShared = [{
     multiPath: {
       type: Boolean,
       value: false
+    },
+    /**
+     * Object used to store various info about current rendering state
+     */
+    _renderingContext: {
+      type: Object,
+      value: function() {
+        return {
+          'lastPointRenderedIndex': null,
+          'currentBatchStartIndex': 0
+        };
+      }
     }
+  },
+
+  _resetRenderingContext: function() {
+    this._renderingContext.lastPointRenderedIndex = null;
+    this._renderingContext.currentBatchStartIndex = 0;
   },
 
   _computeColorArr: function(categories,completeSeriesConfig,seriesId){
@@ -1378,8 +1480,7 @@ PxVisBehaviorD3.lineShared = [{
         renderToCanvas = (typeof(toCanvas) !== 'undefined') ? toCanvas : false,
         xKey = _this.completeSeriesConfig[_this.seriesId]['x'],
         yKey = _this.completeSeriesConfig[_this.seriesId]['y'],
-        line,
-        counter = null;
+        line;
 
     if(this.showGaps) {
       line = Px.d3.line()
@@ -1390,28 +1491,35 @@ PxVisBehaviorD3.lineShared = [{
         .y(function(d) {
           return ~~_this.y(d[yKey]);
         })
-        .defined(function(d) {
+        .defined(function(d,i) {
           return _this._isValidData(d[yKey]);
         });
     } else {
       line = Px.d3.line()
         .x(function(d,i) {
-          if((_this.chartData[i][xKey] || _this.chartData[i][xKey] === 0) && (_this.chartData[i][yKey] || _this.chartData[i][yKey] === 0 ||  _this.chartData[i][yKey] === null)) {
+          if((d[xKey] || d[xKey] === 0) && (d[yKey] || d[yKey] === 0)) {
             return ~~_this.x(d[xKey]);
-          } else {
-            return ~~_this.x(_this.chartData[counter][xKey]);
+          } else if(!renderToCanvas) {
+
+            //svg needs to have a point defined where canvas will just ignore this point if no value
+            return ~~_this.x(_this.chartData[_this._renderingContext.lastPointRenderedIndex][xKey]);
           }
         })
         .y(function(d,i) {
-          if((_this.chartData[i][xKey] || _this.chartData[i][xKey] === 0) && (_this.chartData[i][yKey] || _this.chartData[i][yKey] === 0 ||  _this.chartData[i][yKey] === null)) {
-            counter = i;
+          if((d[xKey] || d[xKey] === 0) && (d[yKey] || d[yKey] === 0 )) {
+            _this._renderingContext.lastPointRenderedIndex = _this._renderingContext.currentBatchStartIndex + i;
             return ~~_this.y(d[yKey]);
-          } else {
-            return ~~_this.y(_this.chartData[counter][yKey]);
+          } else if(!renderToCanvas) {
+
+            //svg needs to have a point defined where canvas will just ignore this point if no value
+            return ~~_this.y(_this.chartData[_this._renderingContext.lastPointRenderedIndex][yKey]);
           }
         })
-        .defined(function(d) {
-          return counter === null ? _this._isValidData(d[yKey]) : _this._isDataNotNull(d[yKey]);
+        .defined(function(d,i) {
+
+          //at first don't accept undefined since we don't have a previous point
+          //to attach to
+          return _this._renderingContext.lastPointRenderedIndex === null ? _this._isValidData(d[yKey]) : _this._isDataNotNull(d[yKey]);
         });
     }
 
@@ -1447,7 +1555,7 @@ PxVisBehaviorD3.lineShared = [{
           //for each datapoint, iterate through the dimensions
           return path(dims.map(function(p) {
             //check that we have data; if not, return false so it doesnt draw a line
-            if(!d[p]) {
+            if(!d || !d[p]) {
               return false
             }
             //return [x,y] to path: x is ordinal based on dim; get the y-scale for the dim and use that particular scale on the data
@@ -1491,4 +1599,189 @@ PxVisBehaviorD3.serieToRedrawOnTopSVG = [{
   }
 }, PxVisBehavior.serieToRedrawOnTop, PxVisBehaviorD3.svg];
 
+/*
+    Name:
+    PxVisBehaviorD3.radialPixelCalc
+
+    Description:
+    Polymer behavior that provides the mechanism to calculate pixel space vals for polar charts
+
+    Dependencies:
+    - D3.js
+
+    @polymerBehavior PxVisBehaviorD3.radialPixelCalc
+*/
+PxVisBehaviorD3.radialPixelCalc = {
+  calcPixelCoordForRadial: function(angle, amp, yRange, yDomain, whichVal) {
+    var yDomainTot = yDomain[1] - yDomain[0],
+        pixelAmplitude = yRange * (amp - yDomain[0])/yDomainTot;
+
+    angle = this.adjustAngleForPolarChart(angle, false);
+
+    //sin * pixel range * percentage of data range
+    if(whichVal === 'x') {
+      return Math.sin(angle) * pixelAmplitude;
+    }
+    // else
+    return Math.cos(angle) * pixelAmplitude;
+  },
+
+  adjustAngleForPolarChart: function(angle, toDegrees) {
+    //add 180 deg to offset chart 0 being on top
+    var offset = toDegrees ? 180 : Math.PI;
+
+    if((!this.counterClockwise && !toDegrees) ||
+        (this.counterClockwise && toDegrees)) {
+      angle *= -1;
+    }
+
+    //convert to appropriate unit and
+    if(this.useDegrees) {
+      if(toDegrees) {
+        return angle + offset;
+      } else {
+        return angle / 360 * 2 * Math.PI + offset;
+      }
+    } else {
+      if(toDegrees) {
+        return angle / (2 * Math.PI) * 360 + offset;
+      } else {
+        return angle + offset;
+      }
+    }
+  }
+};
+
+
+/*
+    Name:
+    PxVisBehaviorD3.scatterMarkers
+
+    Description:
+    Polymer behavior that provides the definition for scatter markers
+
+    Dependencies:
+    - D3.js
+
+    @polymerBehavior PxVisBehaviorD3.scatterMarkers
+*/
+PxVisBehaviorD3.scatterMarkers = {
+  properties: {
+    /**
+     * Maps dev input marker string to d3 symbols.
+     *
+     * To add additional, custom icons, provide a draw function wrapped in an object and draw your shape using canvas drawing methods. See 'bar' or 'x' as examples
+     */
+    markerMapping: {
+      type: Object,
+      readOnly: true,
+      value: {
+        'circle': Px.d3.symbolCircle,
+        'cross': Px.d3.symbolCross,
+        'diamond': Px.d3.symbolDiamond,
+        'square': Px.d3.symbolSquare,
+        'triangle-up': Px.d3.symbolTriangle,
+        'star': Px.d3.symbolStar,
+        'wye': Px.d3.symbolWye,
+        'bar': {
+          draw: function(context, size) {
+            var w = Math.sqrt(size),
+                t = w/4;
+            context.rect(-w, -t, w, t);
+          }
+        },
+        'thin-bar': {
+          draw: function(context, size) {
+            var w = Math.sqrt(size),
+                t = w/16;
+            context.rect(-w, -t, w, t);
+          }
+        },
+        'thick-bar': {
+          draw: function(context, size) {
+            var w = Math.sqrt(size),
+                t = w/2;
+            context.rect(-w, -t, w, t);
+          }
+        },
+        'x': {
+          draw: function(context, size) {
+            var t = 0.5,
+                c = 0.01,
+                l = Math.sqrt(size) / 2;
+            context.moveTo(0, -c);
+            context.lineTo(l - t, -l + t);
+            context.lineTo(l + t, -l - t);
+            context.lineTo(c, 0);
+            context.lineTo(l + t, l + t);
+            context.lineTo(l - t, l - t);
+            context.lineTo(0, c);
+            context.lineTo(-l + t, l - t);
+            context.lineTo(-l - t, l + t);
+            context.lineTo(-c, 0);
+            context.lineTo(-l - t, -l - t);
+            context.lineTo(-l + t, -l + t);
+            context.closePath();
+          }
+        },
+      }
+    },
+    /**
+     * The symbol used for the marker. Supported symbols:
+     * - 'circle'
+     * - 'cross'
+     * - 'diamond'
+     * - 'square'
+     * - 'triangle-up'
+     * - 'star'
+     * - 'wye'
+     * more info at https://github.com/d3/d3-shape/blob/master/README.md#symbols
+     * This property will be read from the completeSeriesConfig
+     *
+     * Some additional "custom" types are also available:
+     * - 'bar'
+     * - 'thin-bar'
+     * - 'thick-bar'
+     * - 'x'
+     */
+    markerSymbol: {
+      type: String
+    },
+    /**
+     * Scales the size of the scatter marker
+     * This property will be read from the completeSeriesConfig
+     */
+    markerScale: {
+      type: Number
+    },
+    /**
+     * the size of the markers
+     * This property will be read from the completeSeriesConfig
+     */
+    markerSize: {
+      type: Number
+    },
+    /**
+     * The opacity of the fill (inside) of the marker
+     * This property will be read from the completeSeriesConfig
+     */
+    markerFillOpacity: {
+      type: Number
+    },
+    /**
+     * The opacity of the stroke (outside) of the marker
+     * This property will be read from the completeSeriesConfig
+     */
+    markerStrokeOpacity: {
+      type: Number
+    },
+    /**
+     * the opacity value of the fill to be used when muting a serie (stroke is not drawn on mute)
+     * This property will be read from the completeSeriesConfig
+     */
+    mutedOpacity: {
+      type: Number
+    },
+  }
+};
 </script>

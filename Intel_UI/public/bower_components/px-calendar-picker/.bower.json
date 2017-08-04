@@ -1,11 +1,10 @@
 {
   "name": "px-calendar-picker",
-  "version": "0.7.2",
+  "version": "0.6.15",
   "main": [
     "px-calendar-picker.html"
   ],
   "ignore": [
-    "*.enc",
     ".*",
     "node_modules",
     "bower_components",
@@ -28,23 +27,23 @@
   "dependencies": {
     "polymer": "^1.6.1",
     "px-theme": "^2.0.1",
-    "px-datetime-common": "^0.8.0",
+    "px-datetime-common": "^0.7.0",
     "px-polymer-font-awesome": "^1.1.0",
     "px-buttons-design": "^1.1.0",
     "px-tables-design": "^1.1.0"
   },
   "devDependencies": {
     "px-starter-kit-design": "^0.7.0",
-    "px-demo": "^1.0.0"
+    "px-demo": "^1.0.2"
   },
   "homepage": "https://github.com/PredixDev/px-calendar-picker",
-  "_release": "0.7.2",
+  "_release": "0.6.15",
   "_resolution": {
     "type": "version",
-    "tag": "v0.7.2",
-    "commit": "38776282e9905ecfb55f4251ec763b1c0cefc6c8"
+    "tag": "v0.6.15",
+    "commit": "5df3d6193c29d872267c007310dd501abd3b67c0"
   },
   "_source": "https://github.com/PredixDev/px-calendar-picker.git",
-  "_target": "^0.7.0",
+  "_target": "0.6.15",
   "_originalSource": "px-calendar-picker"
 }

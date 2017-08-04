@@ -8,7 +8,6 @@
 <link rel="import" href="px-vis-line-svg.html"/>
 <link rel="import" href="px-vis-axis.html"/>
 <link rel="import" href="px-vis-brush.html"/>
-<link rel="import" href="../px-datetime-common/px-datetime-imports.html"/>
 <link rel="import" href="../iron-resizable-behavior/iron-resizable-behavior.html" />
 <link rel="import" href="../px-colors-design/colors.html" />
 
@@ -106,8 +105,19 @@ Custom property | Description | Default
           height="[[height]]"
           margin="[[margin]]"
           svg="{{svg}}"
+          px-svg-elem="{{pxSvgElem}}"
           canvas-context="{{canvasContext}}">
         </px-vis-svg-canvas>
+
+        <template is="dom-if" if="[[!renderToCanvas]]">
+          <px-vis-clip-path
+            svg="[[layer.1]]"
+            width="[[width]]"
+            height="[[height]]"
+            margin="[[margin]]"
+            series-clip-path="{{seriesClipPath}}">
+          </px-vis-clip-path>
+        </template>
 
         <template is="dom-repeat" items="[[_seriesKeys]]">
           <template is="dom-if" if="[[_limitSeries(index,navSeriesLimit)]]">
@@ -140,6 +150,7 @@ Custom property | Description | Default
                   complete-series-config="[[completeSeriesConfig]]"
                   x="[[x]]"
                   y="[[y]]"
+                  clip-path="[[seriesClipPath]]"
                   domain-changed="[[domainChanged]]"
                   muted-series="[[mutedSeries]]">
                 </px-vis-line-svg>
@@ -174,6 +185,7 @@ Custom property | Description | Default
                   marker-size="2"
                   x="[[x]]"
                   y="[[y]]"
+                  clip-path="[[seriesClipPath]]"
                   domain-changed="[[domainChanged]]"
                   muted-series="[[mutedSeries]]">
                 </px-vis-scatter>
@@ -242,7 +254,9 @@ Custom property | Description | Default
           PxVisBehaviorChart.axisConfigs,
           PxVisBehaviorChart.subConfiguration,
           PxVisBehaviorChart.layers,
-          PxColorsBehavior.dataVisColorTheming
+          PxColorsBehavior.dataVisColorTheming,
+          PxVisBehaviorChart.webWorkerSynchronization,
+          PxVisBehaviorD3.clipPath
         ],
 
         /**
@@ -343,9 +357,9 @@ Custom property | Description | Default
           '_xAxisConfigChanged(xAxisConfig.*)',
           '_setXScale(width, margin, xAxisType)',
           '_setYScale(height, margin, yAxisType)',
-          '_setDomain(_chartDataHasChanged.*, x, y, completeSeriesConfig, dataExtents)',
+          '_setDomain(wwDataSyncCounter, x, y, completeSeriesConfig, dataExtents)',
           '_setDomain(chartExtents, dataExtents)',
-          '_chartDataChanged(chartData.*)'
+          '_keepDataInSync(chartData.*, chartId)'
         ],
 
         listeners: {
@@ -356,6 +370,7 @@ Custom property | Description | Default
           this.set('numberOfLayers', 3);
           this._onIronResize();
         },
+
 
         _xAxisConfigChanged: function(conf) {
           this._applyConfigToElement(this.xAxisConfig, this.$.xAxis);

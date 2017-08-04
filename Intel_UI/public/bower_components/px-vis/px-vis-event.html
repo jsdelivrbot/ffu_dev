@@ -5,6 +5,7 @@
 <link rel="import" href="../px-colors-design/colors.html" />
 <link rel="import" href="fa_codes.html" />
 <link rel="import" href="../px-tooltip/px-tooltip.html"/>
+<link rel="import" href="../app-localize-behavior/app-localize-behavior.html"/>
 
 <!--
 d3 element which draws a line and icon on the chart representing an event.
@@ -83,9 +84,9 @@ Custom property | Description | Default
           delay="10"
           orientation="[[tooltipOrientation]]">
           <span>
-            <b>Event</b>: [[eventData.label]] <br/>
-            <b>ID</b>: [[eventData.id]] <br/>
-            <b>[[_getValueTitle(xAxisType)]]</b>[[_value]]<br/>
+            <b>[[localize("Event")]]</b>: [[eventData.label]] <br/>
+            <b>[[localize("ID")]]</b>: [[eventData.id]] <br/>
+            <b>[[_getValueTitle(xAxisType, localize)]]</b>[[_value]]<br/>
           </span>
         </px-tooltip>
       </template>
@@ -108,6 +109,7 @@ Custom property | Description | Default
       PxVisBehavior.events,
       PxVisBehaviorD3.domainUpdate,
       PxColorsBehavior.baseColors,
+      Polymer.AppLocalizeBehavior,
       faCodes
     ],
 
@@ -196,6 +198,39 @@ Custom property | Description | Default
         value: false
       },
 
+      /**
+       * List of key/values to be included for translating this component
+       */
+      resources: {
+        type: Object,
+        value: function() {
+          return {
+            'en': {
+              'Event': 'Event',
+              'ID': 'ID',
+              'Timestamp': 'Timestamp',
+              'X': 'X'
+            }
+          };
+        }
+      },
+      /**
+      * set a default for localizing
+      */
+      language: {
+        type: String,
+        value: 'en'
+      },
+      /**
+      * Use the key for localization if value for  language is missing. Should
+      * always be true for  our components
+      */
+     useKeyIfMissing: {
+       type: Boolean,
+       value: true
+     },
+
+
       _hasBeenDetached: {
         type: Boolean,
         value: false
@@ -209,6 +244,7 @@ Custom property | Description | Default
       _value: {
         type: String
       }
+
     },
 
     observers: [
@@ -451,9 +487,9 @@ Custom property | Description | Default
      */
     _getValueTitle: function(xAxisType) {
       if(xAxisType === 'time' || xAxisType === 'timeLocal') {
-        return 'Timestamp';
+        return this.localize('Timestamp');
       } else {
-        return 'X';
+        return this.localize('X');
       }
     },
     /**

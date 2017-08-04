@@ -1,7 +1,7 @@
 ---
 applications:
   - name: integration-predix-dataingestion
-    buildpack: java_buildpack
+    buildpack: java-buildpack
     path: target/dataingestion-service-1.1.4.jar
     services:
       - ${assetService}

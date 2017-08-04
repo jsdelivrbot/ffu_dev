@@ -1,7 +1,7 @@
 ---
 applications:
   - name: Intel-FFU-MVP-Application
-    memory: 256MB
+    memory: 256M
     buildpack: nodejs_buildpack
     command: node server/app.js
     path: dist
@@ -19,6 +19,6 @@ env:
     loginBase64ClientCredential: S2VudC1Eb2pvLUNsaWVudDpJbnRlbERvam8=
     # Use a full wss:// URL for actual web socket server. use /livestream for mock data.
     websocketServerURL: /livestream
-    redisServiceURL: "https://backend-ui-app.run.aws-usw02-pr.ice.predix.io"
+    redisServiceURL: "https://backend-ui-app-test-pat.run.aws-usw02-pr.ice.predix.io"
     rmdDocsURL: "https://raw.githubusercontent.com/PredixDev/predix-rmd-ref-app/master/README.md"
     inteltsqueryURL: "https://inteltsquery-preinterpretative-reverie.run.aws-usw02-pr.ice.predix.io"

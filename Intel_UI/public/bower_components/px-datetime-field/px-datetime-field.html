@@ -5,6 +5,7 @@
     'grunt depserve' (or similar server setup) to enable correct finding of bower dependencies for local runs.
 -->
 <link rel="import" href="../polymer/polymer.html"/>
+<link rel="import" href="../px-datetime-common/px-datetime-imports.html"/>
 <link rel="import" href="../px-datetime-common/px-datetime-entry.html"/>
 <link rel="import" href="../px-datetime-common/px-datetime-behavior.html"/>
 <link rel="import" href="../px-datetime-common/px-datetime-buttons.html"/>
@@ -51,10 +52,7 @@ Custom property | Description | Default
           time-zone="{{timeZone}}"
           show-time-zone="{{_showTimeZoneInDate(hideTime, showTimeZone)}}"
           block-future-dates="{{blockFutureDates}}"
-          block-past-dates="{{blockPastDates}}"
-          resources="[[resources]]"
-          language="[[language]]"
-          formats="[[formats]]">
+          block-past-dates="{{blockPastDates}}">
         </px-datetime-entry>
       </template>
       <template is="dom-if" if="[[!hideTime]]">
@@ -70,20 +68,14 @@ Custom property | Description | Default
           time-zone="{{timeZone}}"
           is-selected="{{isSelected}}"
           block-future-dates="{{blockFutureDates}}"
-          block-past-dates="{{blockPastDates}}"
-          resources="[[resources]]"
-          language="[[language]]"
-          formats="[[formats]]">
+          block-past-dates="{{blockPastDates}}">
         </px-datetime-entry>
       </template>
     </div>
     <template is="dom-if" if="{{showButtons}}">
       <px-datetime-buttons
         class="u-ml-"
-        is-submit-button-valid="[[isValid]]"
-        resources="[[resources]]"
-        language="[[language]]"
-        formats="[[formats]]">
+        is-submit-button-valid="[[isValid]]">
       </px-datetime-buttons>
     </template>
   </template>

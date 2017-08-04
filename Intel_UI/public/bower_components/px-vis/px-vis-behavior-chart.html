@@ -209,7 +209,9 @@ PxVisBehaviorChart.chartCommon = [{
           }
 
           if(!fullConfig[k[i]].hasOwnProperty('x')) {
-            console.warn("(｡◕‿◕｡) Configuration " + k[i] + " does not have a x-value associated with it. Falling back to default (｡◕‿◕｡)");
+            if(!this.defaultSeriesConfig['x']) {
+              console.warn("(｡◕‿◕｡) Configuration " + k[i] + " does not have a x-value associated with it. Falling back to default (｡◕‿◕｡)");
+            }
             fullConfig[k[i]]['x'] = this._defaultSeriesConfig['x'];
           }
 
@@ -385,7 +387,7 @@ PxVisBehaviorChart.chartCommon = [{
      *
      */
     _chartTypeLine: function(key,obj) {
-        return obj && obj[key] && obj[key]['type'] === 'line';
+      return obj && obj[key] && (obj[key]['type'] === 'line' || obj[key]['type'] === 'both');
     },
 
     /**
@@ -393,7 +395,7 @@ PxVisBehaviorChart.chartCommon = [{
      *
      */
     _chartTypeScatter: function(key,obj) {
-      return obj && obj[key] && obj[key]['type'] === 'scatter';
+      return obj && obj[key] && (obj[key]['type'] === 'scatter' || obj[key]['type'] === 'both');
     },
 
     /**
@@ -414,8 +416,125 @@ PxVisBehaviorChart.chartCommon = [{
       }
 
       this.notifyPath('_defaultSeriesConfig');
-    }
+    },
 }, PxColorsBehavior.dataVisColors , PxVisBehaviorChart.chartCommonMethods, PxVisBehavior.commonMethods, PxVisBehavior.completeSeriesConfig, PxVisBehavior.axisTypes];
+
+
+/*
+    Name:
+    PxVisBehaviorChart.chartId
+
+    Description:
+    Polymer behavior that allows the chart to have a unique ID
+
+    @polymerBehavior PxVisBehaviorChart.chartId
+*/
+PxVisBehaviorChart.chartId = [{
+
+  properties: {
+      /**
+       * Internal unique ID
+       */
+      chartId: {
+        type: String
+      },
+  }
+},  PxVisBehavior.uniqueIds];
+
+/*
+    Name:
+    PxVisBehaviorChart.webWorkerSynchronization
+
+    Description:
+    Polymer behavior that allows the chart to keep its data synced in a web worker
+
+    @polymerBehavior PxVisBehaviorChart.webWorkerSynchronization
+*/
+PxVisBehaviorChart.webWorkerSynchronization = [{
+    properties: {
+      _wwSyncRequestDataDeletion: {
+        type: Boolean,
+        value: false
+      },
+      _wwSyncDataDeleted: {
+        type: Boolean,
+        value: false
+      },
+      /**
+       * After detaching the chart time after which we will delete
+       * the synced data of the chart from the webworker. If the
+       * chart is re-attached in the meantime the deletion will
+       * be canceled to avoid a re-sync
+       */
+      _wwSyncDataDeletionTimeout: {
+        type: Number,
+        value: 1500
+      },
+      /**
+       * Name of the property to be kept in sync. Usually chartData but can
+       * be overriden for a filtered dataset instead for example
+       */
+      _wwSyncDataPropName: {
+        type: String,
+        value: 'chartData'
+      }
+    },
+    ready: function() {
+      if(!this.preventWebWorkerSynchronization) {
+        this.chartId = this.generateRandomID('chart');
+      }
+    },
+    attached: function() {
+      if(!this.preventWebWorkerSynchronization) {
+        this._wwSyncRequestDataDeletion = false;
+
+        //request a data update if we have been detached, data has
+        //been deleted and then re attached
+        if(this.chartData && this._wwSyncDataDeleted) {
+
+          this._keepDataInSync();
+        }
+      }
+    },
+    detached: function() {
+      if(!this.preventWebWorkerSynchronization) {
+
+        this._wwSyncRequestDataDeletion = true;
+
+        setTimeout(function() {
+
+          //only process if we haven't been re attached
+          if(this._wwSyncRequestDataDeletion) {
+          Px.vis.scheduler.process({
+            'action': 'unregisterChart',
+            'originatorName': this.nodeName,
+            'chartId': this.chartId,
+            'data': null});
+
+            //async, the data hasn't been actually deleted yet but we
+            //don't have a way to cancel it anymore and an update
+            //request would always queue after this request
+            this._wwSyncDataDeleted = true;
+
+            //do we need this?
+            //this.set('wwDataSyncCounter', 0);
+          }
+        }.bind(this), this._wwSyncDataDeletionTimeout);
+      }
+    },
+    _keepDataInSync: function() {
+
+      if(!this.preventWebWorkerSynchronization && this[this._wwSyncDataPropName]) {
+        this._wwSyncDataDeleted = false;
+        Px.vis.scheduler.process({
+            'action': 'updateData',
+            'originatorName': this.nodeName,
+            'chartId': this.chartId,
+            'data': {'chartData': this[this._wwSyncDataPropName]}});
+        this.set('wwDataSyncCounter', this.wwDataSyncCounter+1);
+      }
+    }
+}, PxVisBehavior.dataset, PxVisBehavior.preventWebWorkerSynchronization, PxVisBehavior.wwDataSyncCounter];
 
 /*
     Name:
@@ -448,75 +567,122 @@ PxVisBehaviorChart.saveImage = [{
       var canvas = document.createElement('canvas'),
           context,
           result,
-          svgData;
+          svgData,
+          elementsToRender = [],
+          canvasKeys = Object.keys(this.canvasLayers),
+          //try to fetch extendeWwidth, then smaller side, then width
+          drawingWidth = this._extendedWidth ? this._extendedWidth : (this._smallerSide ? this._smallerSide : this.width),
+          drawingHeight = this._smallerSide ? this._smallerSide : this.height;
 
-      canvas.width = this.width + (renderLegend ? this._getRegisterWidth() : 0);
+      canvas.width = drawingWidth + (renderLegend ? this._getRegisterWidth(drawingWidth, drawingHeight) : 0);
 
-      canvas.height = this.height;
+      canvas.height = drawingHeight;
       context = canvas.getContext('2d');
 
-      if(this.canvasContext) {
-        //draw current canvas on new canvas
-        context.drawImage(this.canvasContext.canvas, 0, 0);
+      //draw in the same order as px-vis-svg-canvas....
+      //true = svg, false = canvas
+      elementsToRender.push([this.pxSvgElemLower, true]);
+      elementsToRender.push([this.canvasContext, false]);
+      elementsToRender.push([this.canvasContextTop, false]);
+      for(var i=0; i<canvasKeys.length; i++) {
+        elementsToRender.push([this.canvasLayers[canvasKeys[i]], false]);
       }
+      elementsToRender.push([this.pxSvgElem, true]);
 
-     if(this.pxSvgElem) {
-       //drawing the svg bit
-        this._drawSVGOnCanvas(canvas, function(resultCanvas) {
-          if(renderLegend) {
-            this._drawRegister(resultCanvas.getContext('2d'), this.width);
+      //now render all elements found
+      var fn = function() {
+
+        if(elementsToRender.length>0) {
+          var target = elementsToRender.shift();
+
+          //if this element is defined
+          if(target[0]) {
+            if(!target[1]) {
+              //canvas
+              canvas.getContext('2d').drawImage(target[0].canvas, 0, 0);
+
+              //if we have more element keep drawing, else finish
+              if(elementsToRender.length > 0) {
+                fn();
+              } else {
+                this._finishGetImage(callback, canvas, renderLegend, drawingWidth, drawingHeight);
+              }
+              fn();
+            } else {
+              //svg
+              this._drawSVGOnCanvas(canvas, target[0], function(resultCanvas) {
+                canvas = resultCanvas;
+
+                //if we have more element keep drawing, else finish
+                if(elementsToRender.length > 0) {
+                  fn();
+                } else {
+                  this._finishGetImage(callback, canvas, renderLegend, drawingWidth, drawingHeight);
+                }
+              }.bind(this));
+            }
+          } else {
+            //ellement is null, continue iterating
+            fn();
           }
-          callback({canvas: resultCanvas, image: resultCanvas.toDataURL()});
-        }.bind(this));
-      } else if(this.canvasContext) {
-        //we have a canvas but no svg
-        if(renderLegend) {
-          this._drawRegister(context, this.width);
         }
-        callback({canvas: canvas, image: canvas.toDataURL()});
-      }
+      }.bind(this);
+      fn();
     },
-    _getRegisterWidth: function() {
-      var canvas = document.createElement('canvas');
-      canvas.height = this.height;
-      canvas.width = 9999;
+    _finishGetImage: function(callback, canvas, renderLegend, drawingWidth, drawingHeight) {
+      if(renderLegend) {
+        this._drawRegister(canvas.getContext('2d'), drawingWidth, drawingHeight);
+      }
+      callback({canvas: canvas, image: canvas.toDataURL()});
+    },
+    _getRegisterWidth: function(drawingWidth, drawingHeight) {
+      if(this.completeSeriesConfig) {
 
-      var curY = 0,
-          curX = this.width + 5,
-          keys = Object.keys(this.completeSeriesConfig),
-          maxWidth = 0,
-          maxTotalWidth = 5,
-          context = canvas.getContext('2d');
-          curTextWidth = 0;
+        var canvas = document.createElement('canvas');
+        canvas.height = drawingHeight;
+        canvas.width = 9999;
 
-      for(var i=0; i<keys.length; i++) {
+        var curY = 0,
+            curX = drawingWidth + 5,
+            keys = Object.keys(this.completeSeriesConfig),
+            maxWidth = 0,
+            maxTotalWidth = 5,
+            context = canvas.getContext('2d');
+            curTextWidth = 0;
+
+        for(var i=0; i<keys.length; i++) {
           curY += 30;
 
           curTextWidth = context.measureText(this.completeSeriesConfig[keys[i]].name).width;
           maxWidth = Math.max(maxWidth, curTextWidth);
 
-          if( (curY + 30) > this.height ) {
+          if( (curY + 30) > drawingHeight) {
             curX += maxWidth + 15;
             curY = 0;
             maxTotalWidth += maxWidth + 15;
             maxWidth = 0;
           }
         }
-        maxTotalWidth += maxWidth + 15;
+        maxTotalWidth += maxWidth + 30;
 
         return maxTotalWidth;
+      } else {
+        return 0;
+      }
     },
     /**
      * Draws a fake representation of the registers
      */
-    _drawRegister: function(context) {
-      var curY = 0,
-          lineLength = 25,
-          strokeWidth = 3,
-          curX = this.width + 5,
-          keys = Object.keys(this.completeSeriesConfig),
-          maxWidth = 0,
-          curTextWidth = 0;
+    _drawRegister: function(context, startWidth, drawingHeight) {
+
+      if(this.completeSeriesConfig) {
+        var curY = 0,
+            lineLength = 25,
+            strokeWidth = 3,
+            curX = startWidth + 5,
+            keys = Object.keys(this.completeSeriesConfig),
+            maxWidth = 0,
+            curTextWidth = 0;
 
         //draw each serie
         for(var i=0; i<keys.length; i++) {
@@ -529,11 +695,12 @@ PxVisBehaviorChart.saveImage = [{
           curTextWidth = context.measureText(this.completeSeriesConfig[keys[i]].name).width;
           maxWidth = Math.max(maxWidth, curTextWidth);
 
-          if( (curY + 30) > this.height ) {
+          if( (curY + 30) > drawingHeight ) {
             curX += maxWidth + 15;
             curY = 0;
           }
         }
+      }
     }
 }, PxVisBehavior.completeSeriesConfig];
 
@@ -754,6 +921,10 @@ PxVisBehaviorChart.waitForAttach = {
       }
     },
 
+    attached: function() {
+      this._loadedOnPage = true;
+    },
+
     /**
      * checks if the chart is attached, otherwise waits and recalls
      */
@@ -843,7 +1014,7 @@ PxVisBehaviorChart.registerConfigs = {
   properties: {
     /**
      * Configuration object used to customize the tooltip cosmetic properties.
-     * Please refer to px-vis-tooltip and px-vis-register (https://github.com/PredixDev/px-vis) for a list of supported proerties
+     * Please refer to px-vis-tooltip and px-vis-register (https://github.com/PredixDev/px-vis) for a list of supported properties
      * Most interesting properties include:
      * - width
      * - height
@@ -855,11 +1026,36 @@ PxVisBehaviorChart.registerConfigs = {
     },
     /**
      * Configuration object used to customize the register cosmetic properties.
-     * Please refer to px-vis-register (https://github.com/PredixDev/px-vis) for a list of supported proerties
+     * Please refer to px-vis-register (https://github.com/PredixDev/px-vis) for a list of supported properties
      *
      */
     registerConfig: {
       type: Object
+    }
+  }
+};
+
+/*
+    Name:
+    PxVisBehaviorChart.interactionSpaceConfig
+
+    Description:
+    Behavior providing configuration for a interaction space for a chart
+
+    Dependencies:
+    - D3.js
+
+    @polymerBehavior PxVisBehaviorChart.interactionSpaceConfig
+*/
+PxVisBehaviorChart.interactionSpaceConfig = {
+  properties: {
+      /**
+      * Configuration object used to customize the interaction space
+      * Please refer to px-vis-interation space (https://github.com/PredixDev/px-vis) for a list of supported properties.
+      */
+    interactionSpaceConfig: {
+      type: Object,
+      value: function() { return {}; }
     }
   }
 };
@@ -876,7 +1072,7 @@ PxVisBehaviorChart.registerConfigs = {
 
     @polymerBehavior PxVisBehaviorChart.chartToolbarConfig
 */
-PxVisBehaviorChart.chartToolbarConfig = {
+PxVisBehaviorChart.chartToolbarConfig = [{
   properties: {
       /**
       * Configuration object used to customize the toolbar
@@ -888,9 +1084,9 @@ PxVisBehaviorChart.chartToolbarConfig = {
       */
     toolbarConfig: {
       type: Object
-    },
+    }
   }
-};
+}, PxVisBehaviorChart.interactionSpaceConfig];
 
 /*
     Name:
@@ -951,6 +1147,57 @@ PxVisBehaviorChart.navigatorConfig = {
   }
 };
 
+/*
+    Name:
+    PxVisBehaviorChart.highlighterConfigs
+
+    Description:
+    Behavior allowing providing component config declarations
+
+    Dependencies:
+    - D3.js
+
+    @polymerBehavior PxVisBehaviorChart.highlighterConfigs
+*/
+PxVisBehaviorChart.highlighterConfigs = {
+  properties: {
+    /**
+     * Configuration object used to customize the highlighter properties.
+     * Please refer to px-vis-point-highlighter and px-vis-line-highlighter (https://github.com/PredixDev/px-vis) for a list of supported properties
+     * Most interesting properties include:
+     * - `fuzz` : +/- search window around the datapoint value
+     * - 'differenDataset' : if this chart has a different dataset from the crosshair data origin chart
+     * - `color` : the color for the point or line
+     */
+    highlighterConfig: {
+      type: Object
+    }
+  }
+};
+
+/*
+    Name:
+    PxVisBehaviorChart.mouseCusorConfig
+
+    Description:
+    Behavior allowing providing component config declarations
+
+    Dependencies:
+    - D3.js
+
+    @polymerBehavior PxVisBehaviorChart.mouseCusorConfig
+*/
+PxVisBehaviorChart.mouseCusorConfig = {
+  properties: {
+    /**
+     * Configuration object used to customize the mouse cursor properties.
+     * Please refer to px-vis-mouseCursor (https://github.com/PredixDev/px-vis) for a list of supported properties
+     */
+    mouseCursorConfig: {
+      type: Object
+    }
+  }
+};
 
 /*
     Name:
@@ -1042,7 +1289,7 @@ PxVisBehaviorChart.cursorConfig = {
   properties: {
     /**
      * Configuration object used to customize the cursor properties.
-     * Please refer to px-vis-cursor (https://github.com/PredixDev/px-vis) for a list of supported proerties
+     * Please refer to px-vis-cursor (https://github.com/PredixDev/px-vis) for a list of supported properties
      *
      */
     cursorConfig: {
@@ -1075,7 +1322,7 @@ PxVisBehaviorChart.layers = [{
     generateLayers: {
       type: Boolean,
       value: true
-    },
+    }
     //TODIO: array of event allowed to pierce
   },
   observers: [
@@ -1090,8 +1337,19 @@ PxVisBehaviorChart.layers = [{
         name = propName ? propName : 'layer';
 
     for(var i = 0; i < numberOfLayers; i++) {
-      var layer = svg.append('g');
-      layer.attr('id', "layer" + i);
+      var layer;
+
+      /*
+        if we are in shady dom, need to use Polymer.dom append child to get the shady scope. Matters for these elements because they can have classes applied by highlight and cursor components and using the Polymer.dom method is twice as slow as the d3 method.
+      */
+      if(Polymer.Settings.useNativeShadow) {
+        layer = svg.append('g');
+      } else {
+        var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        layer = Px.d3.select(Polymer.dom(svg.node()).appendChild(g));
+      }
+
+      layer.attr('id', "layer" + i)
       layers.push(layer);
     }
 
@@ -1112,15 +1370,13 @@ PxVisBehaviorChart.layers = [{
   _initMousePiercing: function() {
 
     var topLayer = this.layer[this.layer.length - 1],
-        _this = this,
         //TODO: proeprty
         events = ['mousedown', 'mouseover', 'click', 'hover'],
         handlers = [];
 
     //setup piercing for all events defined
     for(var i=0; i<events.length; i++) {
-      var eventName = events[i],
-          _this = this;
+      var eventName = events[i];
 
       handlers.push(this._createPiercingEventHandler(eventName, this, topLayer));
       topLayer.node().addEventListener(eventName, handlers[i]);
@@ -1128,46 +1384,45 @@ PxVisBehaviorChart.layers = [{
   },
   _createPiercingEventHandler: function(eventName, context, topLayer) {
     return function(evt) {
+      //recreate an event we will propagate
+      //This is true only for IE,firefox
+      var newEvt,
+          target;
 
-              //recreate an event we will propagate
-              //This is true only for IE,firefox
-              var newEvt,
-                  target;
+      if(document.createEvent) {
+      // To create a mouse event , first we need to create an event and then initialize it.
+          newEvt = document.createEvent('MouseEvent');
+          newEvt.initMouseEvent(eventName,
+          evt.bubbles,
+          evt.cancelable,
+          evt.view,evt.detail,evt.screenX,evt.screenY,evt.clientX,evt.clientY,
+          evt.ctrlKey,evt.altKey,evt.shiftKey,evt.metaKey,evt.button,evt.relatedTarget);
+      }
+      else {
+          newEvt = new MouseEvent(eventName, evt);
+      }
 
-              if(document.createEvent) {
-              // To create a mouse event , first we need to create an event and then initialize it.
-                  newEvt = document.createEvent('MouseEvent');
-                  newEvt.initMouseEvent(eventName,
-                  evt.bubbles,
-                  evt.cancelable,
-                  evt.view,evt.detail,evt.screenX,evt.screenY,evt.clientX,evt.clientY,
-                  evt.ctrlKey,evt.altKey,evt.shiftKey,evt.metaKey,evt.button,evt.relatedTarget);
-              }
-              else {
-                  newEvt = new MouseEvent(eventName, evt);
-              }
+      //hide current layer so we can find who we need to notify
+      topLayer.node().style['display'] = 'none';
 
-              //hide current layer so we can find who we need to notify
-              topLayer.node().style['display'] = 'none';
+      //chrome stops on custom elements when doing elementFromPoint so
+      //we need to recursively go down shadowRoots until we find the element
+      var findElem = function(elem) {
+        if(elem.shadowRoot) {
+          return findElem(elem.shadowRoot.elementFromPoint(evt.clientX, evt.clientY));
+        } else {
+          return elem;
+        }
+      }
 
-              //chrome stops on custom elements when doing elementFromPoint so
-              //we need to recursively go down shadowRoots until we find the element
-              var findElem = function(elem) {
-                if(elem.shadowRoot) {
-                  return findElem(elem.shadowRoot.elementFromPoint(evt.clientX, evt.clientY));
-                } else {
-                  return elem;
-                }
-              }
+      target = findElem(document.elementFromPoint(evt.clientX, evt.clientY));
 
-              target = findElem(document.elementFromPoint(evt.clientX, evt.clientY));
+      //restore our layer visiblity
+      topLayer.node().style['display'] = 'inline';
 
-              //restore our layer visiblity
-              topLayer.node().style['display'] = 'inline';
-
-              //and dispatch the event to the appropriate target
-              target.dispatchEvent(newEvt);
-          }.bind(context);
+      //and dispatch the event to the appropriate target
+      target.dispatchEvent(newEvt);
+  }.bind(context);
   }
 }, PxVisBehaviorD3.svg, PxVisBehavior.commonMethods];
 
@@ -1319,9 +1574,11 @@ PxVisBehaviorChart.zooming = [{
     }
   },
   zoomIn: function() {
+    this.set('extentsAction', 'zoom');
     this._autoZoom(true);
   },
   zoomOut: function() {
+    this.set('extentsAction', 'zoom');
     this._autoZoom(false);
   },
   _autoZoom: function(isZoomIn) {
@@ -1461,6 +1718,9 @@ PxVisBehaviorChart.zooming = [{
    *
    */
   zoom: function(extentsData) {
+    if(this.extentsAction !== 'zoom') {
+      return;
+    }
 
     if(!this._isPanning) {
       this._saveZoomState();
@@ -1476,7 +1736,13 @@ PxVisBehaviorChart.zooming = [{
    *
    */
   resetZoom: function() {
-    this.set('selectedDomain', 'reset');
+
+    //we still want to reset even if we were already reset, in case data has been filtered
+    if(this.selectedDomain === 'reset') {
+      this.set('selectedDomain', 'rereset');
+    } else {
+      this.set('selectedDomain', 'reset');
+    }
 
     //ensure the zoom stack is reset
     this.splice('zoomStack', 0, this.zoomStack.length);
@@ -1855,7 +2121,7 @@ PxVisBehaviorChart.multiAxis = [{
       } else if(typeof this.y === 'function') {
         return this.y;
       }
-    }
+   }
     return;
   }
 
@@ -1888,8 +2154,12 @@ PxVisBehaviorChart.axisRegister = [{
   },
   observers: ['_computedAxisRegisterConf(axes, completeSeriesConfig)'],
 
+  /**
+  *
+  * configures the register config and empty data series
+  */
   _computedAxisRegisterConf: function(axes, completeSeriesConfig) {
-
+// TODO maybe need an axes check?
     //first set new config
     var axisConfig = {},
         configTitle,
@@ -1898,13 +2168,14 @@ PxVisBehaviorChart.axisRegister = [{
     tooltipData.series = [];
 
     for(var i=0; i<axes.length; i++) {
-      configTitle = completeSeriesConfig[axes[i]] ? completeSeriesConfig[axes[i]].title : null;
+      configTitle = completeSeriesConfig[axes[i]] ? completeSeriesConfig[axes[i]].title : axes[i];
 
       axisConfig[axes[i]] = {
-        'name': configTitle ? configTitle : axes[i],
+        'name': configTitle,
         'y': axes[i],
         'yAxisUnit': completeSeriesConfig[axes[i]] && completeSeriesConfig[axes[i]]['yAxisUnit'] ? completeSeriesConfig[axes[i]]['yAxisUnit'] : ''
       };
+
       tooltipData.series.push({ 'name': axes[i]});
     }
 
@@ -1919,6 +2190,10 @@ PxVisBehaviorChart.axisRegister = [{
     return '';
   },
 
+  /**
+  *
+  * Resuses existing register dataset for series names and adds or removes values
+  */
   _buildAxisTooltipData: function(values, time) {
     //update axis register with the value
     if(this._axisRegisterTooltipData && this._axisRegisterTooltipData.series && !this.hideAxisRegister) {
@@ -1931,10 +2206,12 @@ PxVisBehaviorChart.axisRegister = [{
         var newSeries = {},
             name = this._axisRegisterTooltipData.series[i].name;
         newSeries.name = name;
+
         if(values && values[name]) {
           newSeries.value = {};
           newSeries.value[name] = values[name];
         }
+
         copy.series.push(newSeries);
       }
 
@@ -2000,11 +2277,18 @@ PxVisBehaviorChart.categoryRegister = [{
 
       for(var i = 0; i < this.categories.length; i ++) {
 
-        //TODO: what text do we want to display
-        config[this.categories[i].toString()] = {
-          'name': this.categoryKey + ' - ' + this.categories[i].toString(),
-          "color": this._getColor(this.startColorIndex + i),
-        };
+        //if config defined try to reuse color
+        if(this.completeSeriesConfig[this.categories[i].toString()]) {
+          config[this.categories[i].toString()] = {};
+          config[this.categories[i].toString()].name = this.categoryKey + ' - ' + this.categories[i].toString();
+          config[this.categories[i].toString()].color = this.completeSeriesConfig[this.categories[i].toString()].color ? this.completeSeriesConfig[this.categories[i].toString()].color : this._getColor(this.startColorIndex + i);
+        } else {
+          config[this.categories[i].toString()] = {
+            'name': this.categoryKey + ' - ' + this.categories[i].toString(),
+            "color": this._getColor(this.startColorIndex + i),
+          };
+        }
+
         tooltipData.series.push({"name": this.categories[i].toString()})
       }
 
@@ -2037,7 +2321,7 @@ PxVisBehaviorChart.categoryAndAxisRegisterConfigs = [{
   properties: {
     /**
     * Configuration object used to customize the register cosmetic properties.
-    * Please refer to px-vis-register (https://github.com/PredixDev/px-vis) for a list of supported proerties
+    * Please refer to px-vis-register (https://github.com/PredixDev/px-vis) for a list of supported properties
     *
     */
     axisRegisterConfig: {
@@ -2045,7 +2329,7 @@ PxVisBehaviorChart.categoryAndAxisRegisterConfigs = [{
     },
     /**
     * Configuration object used to customize the register cosmetic properties.
-    * Please refer to px-vis-register (https://github.com/PredixDev/px-vis) for a list of supported proerties
+    * Please refer to px-vis-register (https://github.com/PredixDev/px-vis) for a list of supported properties
     *
     */
     categoryRegisterConfig: {
@@ -2133,7 +2417,7 @@ PxVisBehaviorChart.sizeVerticalRegister = [{
       }
 
       this.set('_verticalRegisterHeight', Math.max(Number(this.$[this._verticalRegisterDrawingCanvasId].height) + deductionsTotal, 0));
-    }.bind(this), 50);
+    }.bind(this), 5);
   },
 }, PxVisBehavior.baseSize];
 
@@ -2204,7 +2488,7 @@ PxVisBehaviorChart.thresholdConfig = {
   properties: {
     /**
      * Configuration object used to customize the threshold properties.
-     * Please refer to px-vis-threshold (https://github.com/PredixDev/px-vis) for a list of supported proerties
+     * Please refer to px-vis-threshold (https://github.com/PredixDev/px-vis) for a list of supported properties
      *
      */
     thresholdConfig: {
@@ -2212,5 +2496,7 @@ PxVisBehaviorChart.thresholdConfig = {
     }
   }
 };
+
+
 
 </script>

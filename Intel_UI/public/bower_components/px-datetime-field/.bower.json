@@ -1,11 +1,10 @@
 {
   "name": "px-datetime-field",
-  "version": "0.7.0",
+  "version": "0.6.14",
   "main": [
     "px-datetime-field.html"
   ],
   "ignore": [
-    "*.enc",
     ".*",
     "node_modules",
     "bower_components",
@@ -28,7 +27,7 @@
   "dependencies": {
     "polymer": "^1.6.1",
     "px-theme": "^2.0.1",
-    "px-datetime-common": "^0.8.0"
+    "px-datetime-common": "^0.7.0"
   },
   "devDependencies": {
     "px-starter-kit-design": "^0.7.0",
@@ -36,13 +35,13 @@
     "px-forms-design": "^1.1.3"
   },
   "homepage": "https://github.com/PredixDev/px-datetime-field",
-  "_release": "0.7.0",
+  "_release": "0.6.14",
   "_resolution": {
     "type": "version",
-    "tag": "v0.7.0",
-    "commit": "8bdfbcc9e525fa1f590860fad518a859e292f5de"
+    "tag": "v0.6.14",
+    "commit": "cfde324d4115377a7fc180b8cdc1f0265ee1161d"
   },
   "_source": "https://github.com/PredixDev/px-datetime-field.git",
-  "_target": "^0.7.0",
+  "_target": "^0.6.0",
   "_originalSource": "px-datetime-field"
 }

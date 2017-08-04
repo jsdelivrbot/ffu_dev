@@ -195,7 +195,7 @@ PxVisBehavior.formatting = [{
      * Provide localization for currency formatting
      *
      * For valid formats and features, see: http://numbrojs.com/languages.html
-     * For docs on the component, see: https://metanov.github.io/numbro-element/components/numbro-element/
+     * For docs on the component, see: https://www.predix-ui.com/#/components/px-number-formatter/
      *
      * @property numberFormatCulture
      * @type String
@@ -210,7 +210,7 @@ PxVisBehavior.formatting = [{
      * Specify whether the value should be formatted as a currency
      *
      * For valid formats and features, see: http://numbrojs.com/format.html
-     * For docs on the component, see: https://metanov.github.io/numbro-element/components/numbro-element/
+     * For docs on the component, see: https://www.predix-ui.com/#/components/px-number-formatter/
      *
      * @property numberFormatIsCurrency
      * @type Boolean
@@ -225,7 +225,7 @@ PxVisBehavior.formatting = [{
      * Provide a new default format for currency
      *
      * For valid formats and features, see: http://numbrojs.com/format.html
-     * For docs on the component, see: https://metanov.github.io/numbro-element/components/numbro-element/
+     * For docs on the component, see: https://www.predix-ui.com/#/components/px-number-formatter/
      *
      * @property numberFormatCurrency
      * @type String
@@ -240,7 +240,7 @@ PxVisBehavior.formatting = [{
      * Provides a new default format
      *
      * For valid formats and features, see: http://numbrojs.com/format.html
-     * For docs on the component, see: https://metanov.github.io/numbro-element/components/numbro-element/
+     * For docs on the component, see: https://www.predix-ui.com/#/components/px-number-formatter/
      *
      * @property numberFormatDefault
      * @type String
@@ -255,7 +255,7 @@ PxVisBehavior.formatting = [{
      * The format used to generate the output
      *
      * For valid formats and features, see: http://numbrojs.com/format.html
-     * For docs on the component, see: https://metanov.github.io/numbro-element/components/numbro-element/
+     * For docs on the component, see: https://www.predix-ui.com/#/components/px-number-formatter/
      *
      * @property numberFormat
      * @type String
@@ -270,7 +270,7 @@ PxVisBehavior.formatting = [{
      * A formatted String to extract a value from
      *
      * For valid formats and features, see: http://numbrojs.com/format.html#unformat
-     * For docs on the component, see: https://metanov.github.io/numbro-element/components/numbro-element/
+     * For docs on the component, see: https://www.predix-ui.com/#/components/px-number-formatter/
      *
      * @property numberFormatUnformat
      * @type String
@@ -284,7 +284,7 @@ PxVisBehavior.formatting = [{
      * Defines how to display 0 values
      *
      * For valid formats and features, see: http://numbrojs.com/format.html
-     * For docs on the component, see: https://metanov.github.io/numbro-element/components/numbro-element/
+     * For docs on the component, see: https://www.predix-ui.com/#/components/px-number-formatter/
      *
      * @property numberFormatZero
      * @type String
@@ -556,6 +556,75 @@ PxVisBehavior.tooltipData = {
     tooltipData:{
       type:Object,
       notify:true
+    },
+
+    /**
+     * The "empty" dataset that should be used for tooltipData when not hovering
+     */
+    defaultEmptyData: {
+      type: Object,
+      value: null,
+      notify:true
+    }
+  }
+};
+
+/*
+    Name:
+    PxVisBehavior.crosshairData
+
+    Description:
+    Polymer behavior that provides the crosshairData property px-vis components.
+
+    Dependencies:
+    -
+
+    @polymerBehavior PxVisBehavior.crosshairData
+*/
+PxVisBehavior.crosshairData = {
+  properties: {
+    /**
+     * Data reported back by the interaction space component so charts can share a crosshair. Has two sets of data: 1) the full data retrieved at the shared key so if all charts use the same datasets, this data can just be displayed on all the charts. 2) a list of just the shared key so if they use different datasets, a search for the closest data at each point can be made. crosshairData is in the form:
+     *
+     *```
+     *    {
+     *        "rawData":[{
+     *            "[[sharedKey]]": [[sharedKeyVal1]],
+     *            "[[key1]]":[[val]],
+     *            "[[key2]]":[[val]]
+     *        },{
+     *            "[[sharedKey]]": [[sharedKeyVal2]],
+     *            "[[key1]]":[[val]],
+     *            "[[key2]]":[[val]]
+     *        }],
+     *        "timeStamps":[ timeStamp1, timeStamp2 ]
+     *    }
+     *```
+     * @property crosshairData
+     * @type Object
+     */
+    crosshairData: {
+      type: Object,
+      notify: true
+    },
+
+    /**
+    *  Bool indicating if interaction space is currently generating data
+    *
+    **/
+    generatingCrosshairData: {
+      type: String,
+      value: false,
+      notify: true
+    },
+
+    /**
+     * Allows the crosshair to search all datapoints within a pixel radius. If set
+     * to 0 will only pick up the closest point
+     */
+    crosshairPixelSearch: {
+      type: Number,
+      value: 0
     }
   }
 };
@@ -596,6 +665,13 @@ PxVisBehavior.extentsData = {
     extentsData:{
       type:Object,
       notify:true
+    },
+    /**
+     * Used by the chart to interpret if extentsData is strip or zoom
+     */
+    extentsAction: {
+      type: String,
+      notify: true
     }
   }
 };
@@ -635,7 +711,7 @@ PxVisBehavior.commonMethods = {
    * @param {object}
    * @return {bool}
    */
-  _isD3Empty:function(obj){
+  _isD3Empty:function(obj) {
     if(this._isObjEmpty(obj)) {
       return true;
     }
@@ -713,7 +789,7 @@ PxVisBehavior.commonMethods = {
    */
   _checkThemeVariable: function(varName, defaultValue) {
     var themeVar = this.getComputedStyleValue(varName);
-    return (themeVar.length === 0) ? defaultValue : themeVar;
+    return (!themeVar || themeVar.length === 0) ? defaultValue : themeVar;
   },
 
   /**
@@ -743,13 +819,83 @@ PxVisBehavior.commonMethods = {
   },
 
   /**
-   * deep-copy object
+   * Binary search through sorted chartData
+   */
+  _binarySearch: function(data, key, val, lowerIndex, upperIndex) {
+    if(this.isVarNumber(lowerIndex) && this.isVarNumber(upperIndex) && lowerIndex === upperIndex) {
+      return null;
+    }
+
+    var upperIndex = this.isVarNumber(upperIndex) ? upperIndex : data.length,
+        lowerIndex = this.isVarNumber(lowerIndex) ? lowerIndex : 0,
+        index = Math.floor((upperIndex - lowerIndex) / 2) + lowerIndex;
+
+    if(data[index][key] === val) {
+      return data[index];
+    } else if(val < data[index][key]) {
+      return this._binarySearch(data, key, val, lowerIndex, index);
+    } else if(val > data[index][key]) {
+      return this._binarySearch(data, key, val, index+1, upperIndex);
+    }
+    return null;
+  },
+
+  /**
+   * Binary search through sorted chartData returning all vals within a window
+   */
+  _fuzzyBinarySearch: function(data, key, lowerFuzz, upperFuzz, lowerIndex, upperIndex) {
+    if(this.isVarNumber(lowerIndex) && this.isVarNumber(upperIndex) && lowerIndex >= upperIndex) {
+      return null;
+    }
+
+    var upperIndex = this.isVarNumber(upperIndex) ? upperIndex : data.length,
+        lowerIndex = this.isVarNumber(lowerIndex) ? lowerIndex : 0,
+        index = Math.floor((upperIndex - lowerIndex) / 2) + lowerIndex;
+
+    if(data[index][key] >= lowerFuzz && data[index][key] <= upperFuzz) {
+      return this._getAdjacentValues(data, key, lowerFuzz, upperFuzz, lowerIndex, upperIndex, index);
+    } else if(upperFuzz < data[index][key]) {
+      return this._fuzzyBinarySearch(data, key, lowerFuzz, upperFuzz, lowerIndex, index);
+    } else if(lowerFuzz > data[index][key]) {
+      return this._fuzzyBinarySearch(data, key, lowerFuzz, upperFuzz, index+1, upperIndex);
+    }
+    return null;
+  },
+
+  _getAdjacentValues: function(data, key, lowerFuzz, upperFuzz, lowerIndex, upperIndex, index) {
+    var d = [];
+
+    //Make sure we keep the ordered so that the fuzzy search
+    //can rely on the last item the be the latest in time
+    //start by "going back in time"
+    for(var i = index-1; i > lowerIndex; i--) {
+      if(data[i][key] < lowerFuzz) {
+        break;
+      }
+      //prepend point
+      d.splice(0, 0, data[i]);
+    }
+
+    d.push(data[index]);
+
+    for(var i = index+1; i < upperIndex; i++) {
+      if(data[i][key] > upperFuzz) {
+        break;
+      }
+      d.push(data[i]);
+    }
+
+    return d;
+  },
+
+  /*
+   * deep-copy object into newObject
   */
   clone: function(object, newObject) {
     var newObject = newObject || {};
     for (i in object) {
       if (object.hasOwnProperty(i)) {
-        if (typeof object[i] === 'object') {
+        if (typeof object[i] === 'object' && object[i] !== null) {
           newObject[i] = Array.isArray(object[i]) ? [] : {};
           this.clone(object[i], newObject[i])
         } else {
@@ -758,6 +904,10 @@ PxVisBehavior.commonMethods = {
       }
     }
     return newObject;
+  },
+
+  isVarNumber: function(n) {
+    return n || n === 0 ? true : false;
   }
 };
 
@@ -1132,6 +1282,87 @@ PxVisBehavior.events = {
 
 /*
      Name:
+    PxVisBehavior.markers
+
+    Description:
+    Polymer behavior that provides config and data to manage "markers" (px-vis-event) on the chart
+
+
+    @polymerBehavior PxVisBehavior.markers
+*/
+
+PxVisBehavior.markers = {
+  properties: {
+    /**
+     * Configuration object to define what marker should map to what icon, color, and row.
+     * The object has a key being the marker name, the value being a configuration object for that marker. The configuration object has four properties:
+     * - `color`: A rgb color value for the fill or stroke.
+     * - "markerFillOpacity": the opacity of the inside of the marker
+     * - "markerStrokeOpacity": the opacity of the outside of the marker
+     * - `markerSymbol`: the symbol type; see below
+     * - "markerSize": specifies the size of markers
+     * - "markerScale": allows to scale the size of markers
+     * - "location": "top" or "bottom"
+     * - "row": the row number on the top or the bottom, starting at 0
+     *
+     * The symbol used for the marker. Supported symbols:
+     * - 'circle'
+     * - 'cross'
+     * - 'diamond'
+     * - 'square'
+     * - 'triangle-up'
+     * - 'star'
+     * - 'wye'
+     * more info at https://github.com/d3/d3-shape/blob/master/README.md#symbols
+     *
+     * ```
+     * Example: {
+     *   "myMarkerType":{
+     *       "fillColor": "rgb(123,0,0)",
+     *       "markerFillOpacity": 0.5,
+     *       "markerSymbol": "square",
+     *       "markerSize": 4,
+     *       "location": "top",
+     *       "row": 1,
+     *       "priority": 10
+     *   }
+     * }
+     * ```
+     *
+     */
+    markerConfig: {
+      type: Object
+    },
+    /**
+     * Data representing the markers. Example:
+     * [
+     *    {
+     *      "time": 2,
+     *      "label": "Recalibrate"
+     *    },
+     *    {
+     *      "time": 3,
+     *      "label": "Fan start"
+     *    },
+     *    {
+     *      "time": 4,
+     *      "label": "Fan stop"
+     *    },
+     *    {
+     *      "time": 8,
+     *      "label": "Default"
+     *    }
+     *  ]
+     */
+    markerData: {
+      type: Array
+    }
+  }
+};
+
+
+/*
+     Name:
     PxVisBehavior.thresholds
 
     Description:
@@ -1286,7 +1517,7 @@ PxVisBehavior.categories = {
 
 /*
     Name:
-    PxVisBehaviorD3.commonAxis
+    PxVisBehavior.commonAxis
 
     Description:
     Polymer behavior that provides a boolean to specify a common axis for a chart.
@@ -1294,7 +1525,7 @@ PxVisBehavior.categories = {
     Dependencies:
     - D3.js
 
-    @polymerBehavior PxVisBehaviorD3.commonAxis
+    @polymerBehavior PxVisBehavior.commonAxis
 */
 PxVisBehavior.commonAxis = {
   properties: {
@@ -1303,32 +1534,6 @@ PxVisBehavior.commonAxis = {
      *
      */
     commonAxis: {
-      type: Boolean,
-      value: false
-    }
-  }
-};
-
-/*
-    Name:
-    PxVisBehaviorD3.tooltipOnHover
-
-    Description:
-    Polymer behavior that provides a boolean to specify whether to display a tooltip
-    on hovering over a data point
-
-    Dependencies:
-    - D3.js
-
-    @polymerBehavior PxVisBehaviorD3.tooltipOnHover
-*/
-PxVisBehavior.tooltipOnHover = {
-  properties: {
-    /**
-     * A boolean specifying whether to display a tooltip
-     * on hovering over a data point
-     */
-    tooltipOnHover: {
       type: Boolean,
       value: false
     }
@@ -1362,6 +1567,35 @@ PxVisBehavior.polarData = {
     useDegrees: {
       type: Boolean,
       value: false
+    }
+  },
+  /**
+   * adjusts the angle for the polar chart, taking counterClockwise into account
+   * and returning it in the asked unit (degrees if toDegrees is true)
+   */
+  _adjustAngleForPolarChart: function(angle, toDegrees) {
+
+    //add 180 deg to offset chart 0 being on top
+    var offset = toDegrees ? 180 : Math.PI;
+
+    if((!this.counterClockwise && !toDegrees) ||
+       (this.counterClockwise && toDegrees)) {
+      angle *= -1;
+    }
+
+    //convert to appropriate unit and
+    if(this.useDegrees) {
+      if(toDegrees) {
+        return angle + offset;
+      } else {
+        return angle / 360 * 2 * Math.PI + offset;
+      }
+    } else {
+      if(toDegrees) {
+        return angle / (2 * Math.PI) * 360 + offset;
+      } else {
+        return angle + offset;
+      }
     }
   }
 };
@@ -1851,7 +2085,7 @@ PxVisBehavior.uniqueIds = {
       for(var i=0; i<this._uniqueIdsUsed.length; i++) {
         Px.uniqueIds.splice(Px.uniqueIds.indexOf(this._uniqueIdsUsed[i]), 1);
       }
-      this._uniqueIdsUsed = null;
+      this._uniqueIdsUsed = [];
     }
   },
   /**
@@ -2030,4 +2264,662 @@ PxVisBehavior.waitForAnimationFrame = {
   }
 };
 
+/*
+    PxVisBehavior.applyActionConfig
+
+    Description:
+    Intended for the interaction spaces, method to apply the actionConfig to the listener elem
+    @polymerBehavior PxVisBehavior.applyActionConfig
+*/
+PxVisBehavior.applyActionConfig = {
+  /**
+   * Set up normal listener actions
+   *
+   */
+  _setupRegularActions: function(d3Elem, elem, dontDoUpDown) {
+    var keys = Object.keys(this.actionConfig),
+        mouseEvent,
+        action,
+        bindingContext = this,
+        toBeUsed,
+        noChartContext;
+
+    for(var i=0; i<keys.length; i++) {
+      mouseEvent = keys[i];
+
+      // if we already setup mousedown && up via our d3 caller, skip it
+      if(dontDoUpDown && (mouseEvent === 'mousedown' || mouseEvent === 'mouseup')) {
+        continue;
+      }
+
+      action = this.actionConfig[keys[i]];
+      mappedAction = this[this.actionMapping[action]];
+      noChartContext = false;
+
+
+
+      //is this a function defined heere
+      if(mappedAction && typeof mappedAction === 'function') {
+        //we don't need to remove previous handlers as if they have the same
+        //mouseEVent name then they will be overriden
+        toBeUsed = mappedAction;
+        noChartContext = true;
+      } else if(typeof action === 'function') {
+        toBeUsed = action;
+      } else if(typeof action === 'string' && action && action != 'null') {
+        toBeUsed = eval('var f = function() { return ' + action + ';}; f();');
+      } else {
+        toBeUsed = null;
+      }
+
+      if(toBeUsed) {
+        var wrapper;
+        if(noChartContext) {
+          wrapper = toBeUsed.bind(this);
+        } else {
+          //now ensure the action will be run within the context of the chart
+        var _this = this;
+
+        wrapper = function(evt) {
+            _this.fire('px-vis-action-request', {'function': this, 'data': {'mouseCoords': Px.d3.mouse(elem), 'target': elem}});
+          }.bind(toBeUsed);
+        }
+
+        d3Elem.on(mouseEvent, wrapper);
+      } else {
+        //remove listener
+        d3Elem.on(mouseEvent, null);
+      }
+
+    }
+  }
+};
+
+
+/*
+    PxVisBehavior.actionConfigGeneric
+
+    Description:
+    Behavior providing the actionConfig property
+    @polymerBehavior PxVisBehavior.actionConfigGeneric
+*/
+PxVisBehavior.actionConfigGeneric = {
+  properties: {
+    /**
+    * Configuration used to define what actions happen on events. Each key represents an event,
+    * each value can be:
+    * - a predefined action found in px-vis-interaction-space `actionMapping`
+    * - a function which context will be bound to the chart. The function argument will be the mouse position on the chart
+    */
+    actionConfig: {
+      type: Object
+    }
+  }
+};
+
+
+/*
+    PxVisBehavior.interactionSpaceConfigGeneric
+
+    Description:
+    Behavior providing the interactionSpaceConfig property
+    @polymerBehavior PxVisBehavior.interactionSpaceConfigGeneric
+*/
+PxVisBehavior.interactionSpaceConfigGeneric = {
+  properties: {
+    interactionSpaceConfig: {
+      type: Object
+    }
+  }
+};
+
+
+/*
+    PxVisBehavior.interactionSpaceShared
+
+    Description:
+    Behavior providing shared methods and props for interaction space
+    @polymerBehavior PxVisBehavior.interactionSpaceShared
+*/
+PxVisBehavior.interactionSpaceShared = [{
+  /**
+   * Helper function called on mouseout
+   * resets tooltipData
+   *
+   * @method _resetTooltipData
+   */
+  _resetTooltipData: function() {
+    var ttD;
+    this.set('_calculatingData', false);
+
+    if(this.defaultEmptyData) {
+      ttD = this.defaultEmptyData;
+
+    } else {
+      ttD = {
+            'time': null,
+            'timeSeriesKey': null,
+            'hidden': true,
+            'series': [],
+            'mouse': null,
+            'xArr': null,
+            'yArr': null
+          };
+      var keys = (this.seriesKeys) ? this.seriesKeys : Object.keys(this.completeSeriesConfig),
+          len = keys.length;
+
+      for(var i = 0; i < len; i++){
+        ttD.series.push({'name': keys[i],'value': null });
+      }
+    }
+
+    this.set('tooltipData',ttD);
+    this.fire('px-vis-tooltip-updated', { 'dataVar': 'tooltipData', 'data': ttD, 'method':'set' });
+  },
+
+  _createTooltipDataStub: function(mousePos, timestamp, showTooltip) {
+    return {
+      'time': timestamp,
+      'timeSeriesKey': null,
+      'hidden': showTooltip,
+      'series': [],
+      'mouse': mousePos,
+      'xArr': [],
+      'yArr': [],
+      'rawData': [],
+      'timeStamps': [],
+      'timeStampsTracker': {}
+    }
+  },
+
+  _getPixelCoordForRadialData: function(dataX, dataY, yRange, yDomain, yDomainTot) {
+      var result = [];
+
+      //process angle and amplitude in pxel
+      var angle = dataX,
+          pixelAmplitude = yRange * (dataY - yDomain[0])/yDomainTot;
+
+      angle = this._adjustAngleForPolarChart(angle, false);
+
+      //sin * pixel range * percentage of data range
+      result[1] = Math.cos(angle) * pixelAmplitude;
+      result[0] = Math.sin(angle) * pixelAmplitude;
+
+      return result;
+    },
+}, PxVisBehavior.polarData];
+
+/*
+    PxVisBehavior.highlightShared
+
+    Description:
+    Behavior providing shared methods and props for highligh compoennts
+    @polymerBehavior PxVisBehavior.highlightShared
+*/
+PxVisBehavior.highlightShared = [{
+  properties: {
+    /**
+     * Boolean indicating if the dataset on this chart is different than the one on the crosshairData's origin chart.
+     *
+     * NOTE: The chartData passed into the chart MUST be sorted by the timeData for differentDataset to work. This component will not work with unsorted data.
+     */
+    differentDataset: {
+      type: Boolean,
+      value: false
+    },
+
+    /**
+     * The amount +/- around the datapoint
+     */
+    fuzz: {
+      type: Number,
+      value: 0
+    },
+
+    /**
+     * Name of the variable holding the time stamp in the data
+     */
+    timeData: {
+      type: String,
+      value: 'Timestamp'
+    },
+
+    /**
+     * The layers where the series are drawn if you want them to mute on crosshair data
+     */
+    layersToMask: {
+      type: Array
+    },
+
+    /**
+     * By default, a highlighter will not react to crosshairData if generatingCrosshairData is true. This boolean forces it to draw the crosshairData regardless of the value of generatingCrosshairData
+     */
+    drawWithLocalCrosshairData: {
+      type: Boolean,
+      value: false,
+      notify: true
+    }
+  },
+
+  /**
+   * Determines if we should do a regular binary search or a fuzzy binary search
+   */
+  _calcDataset: function() {
+    var d = [],
+        lowerFuzz,
+        upperFuzz;
+
+    for(var i = 0; i < this.crosshairData.timeStamps.length; i++) {
+      if(this.fuzz) {
+        lowerFuzz = this.crosshairData.timeStamps[i] - Number(this.fuzz);
+        upperFuzz = this.crosshairData.timeStamps[i] + Number(this.fuzz);
+
+        if(d.length) {
+          lowerFuzz = lowerFuzz <= d[d.length-1][this.timeData] ? d[d.length-1][this.timeData] + 1 : lowerFuzz;
+        }
+
+        //merge 2 arrays without creating a new one. DON'T use concat here as the GC implications + array
+        //duplication are killing perf
+        //the only limitation is if the fuzzy search returns more than a few tens of thousands
+        //of points since argument length is arbitrarily limited in different  browsers:
+        //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/apply
+        //in practice we should be ok since each fuzzy search returns result for 1 point, if each point
+        //returns tens of thousands we are in an absolutely crazy scenario
+        Array.prototype.push.apply(d,this._fuzzyBinarySearch(this.chartData, this.timeData, lowerFuzz, upperFuzz, null, null));
+      } else {
+        d.push(this._binarySearch(this.chartData, this.timeData, this.crosshairData.timeStamps[i], null, null));
+      }
+    }
+
+    return d[0] === null ? [] : d ;
+  },
+
+
+  _generateSeries: function(dataset) {
+    var keys = this.seriesKeys ? this.seriesKeys : Object.keys(this.completeSeriesConfig),
+        arr = [];
+
+    for(var i = 0; i < keys.length; i++) {
+      var val = {},
+          x = this.completeSeriesConfig[keys[i]]["x"],
+          y = this.completeSeriesConfig[keys[i]]["y"],
+          coords = [],
+          axis = typeof this.y === 'function' ? this.y : this.y[this.completeSeriesConfig[keys[i]]["axis"]['id']];
+
+      val[x] = dataset[x];
+      val[y] = dataset[y];
+
+      if(this.radial) {
+        var domain = axis.domain(),
+            range = axis.range(),
+            dr = range[1] - range[0]
+            dd = domain[1] - domain[0];
+        coords = this._getPixelCoordForRadialData(dataset[x], dataset[y], dr, domain, dd);
+      } else {
+        coords.push(this.x(val[x]));
+        coords.push(axis(val[y]));
+      }
+
+      arr.push({
+        "name": keys[i],
+        "value": val,
+        "coord": coords
+      })
+    }
+
+    return arr;
+  },
+
+  _setTooltipData: function(dataset) {
+    if(dataset.length) {
+      var timestamp = this.timeData ? dataset[0][this.timeData] : null;
+          series = this._generateSeries(dataset[0]);
+          ttd = this._createTooltipDataStub(series[0]["coord"], timestamp, !this.hideTooltip);
+
+      ttd.series = series;
+
+      this.set("defaultEmptyData", ttd);
+
+    } else {
+      this.set("defaultEmptyData", null);
+    }
+  }
+}, PxVisBehavior.interactionSpaceShared];
+
+/*
+    PxVisBehavior.highlightCanvasShared
+
+    Description:
+    Behavior providing shared methods and props for highligh components
+    @polymerBehavior PxVisBehavior.highlightCanvasShared
+*/
+PxVisBehavior.highlightCanvasShared = [{
+
+  observers: [
+    '_muteDataSeries(_highlightData)',
+    '_addTransition(layersToMask)'
+  ],
+
+  _muteDataSeries: function() {
+    if(this.layersToMask) {
+
+      if(!Array.isArray(this.layersToMask)) {
+        // this.layersToMask.canvas.style.opacity = this._highlightData.length ? 'var(--px-vis-data-mask-opacity, 0.4)' : '';
+
+        this.toggleClass('secondaryDataMask', this._highlightData.length,this.layersToMask.canvas);
+      } else {
+        for(var i=0; i<this.layersToMask.length; i++) {
+          // this.layersToMask[i].canvas.style.opacity = this._highlightData.length ? 'var(--px-vis-data-mask-opacity, 0.4)' : '';
+
+          this.toggleClass('secondaryDataMask', this._highlightData.length, this.layersToMask[i].canvas);
+        }
+      }
+    }
+  },
+
+  _addTransition: function() {
+    if(Array.isArray(this.layersToMask)) {
+      for(var i=0; i<this.layersToMask.length; i++) {
+        this.layersToMask[i].canvas.style.transition = 'opacity 0.2s';
+      }
+    } else {
+      this.layersToMask.canvas.style.transition = 'opacity 0.2s';
+    }
+  }
+
+}, PxVisBehavior.highlightShared];
+
+
+/*
+    PxVisBehavior.highlightSvgShared
+
+    Description:
+    Behavior providing shared methods and props for highligh compoennts
+    @polymerBehavior PxVisBehavior.highlightSvgShared
+*/
+PxVisBehavior.highlightSvgShared = [{
+
+  observers: [
+    '_muteDataSeries(_highlightData)',
+    '_addTransition(layersToMask)'
+  ],
+
+  _muteDataSeries: function(data) {
+    if(this.layersToMask) {
+      if(!Array.isArray(this.layersToMask)) {
+        // this.layersToMask.node().style.opacity = data.length ? 'var(--px-vis-data-mask-opacity, 0.4)' : '';
+        this.toggleClass('secondaryDataMask', data.length, this.layersToMask.node());
+      } else {
+        for(var i=0; i<this.layersToMask.length; i++) {
+          // this.layersToMask[i].node().style.opacity = data.length ? 'var(--px-vis-data-mask-opacity, 0.4)' : '';
+
+          this.toggleClass('secondaryDataMask', data.length, this.layersToMask[i].node());
+        }
+      }
+    }
+  },
+
+  _addTransition: function() {
+    if(!Array.isArray(this.layersToMask)) {
+      this.layersToMask.node().style.transition = 'opacity 0.2s';
+    } else {
+      for(var i=0; i<this.layersToMask.length; i++) {
+        this.layersToMask[i].node().style.transition = 'opacity 0.2s';
+      }
+    }
+  }
+
+}, PxVisBehavior.highlightShared];
+
+/*
+    PxVisBehavior.highlightLineShared
+
+    Description:
+    Behavior providing shared methods and props for highlight line compoennts
+    @polymerBehavior PxVisBehavior.highlightLineShared
+*/
+PxVisBehavior.highlightLineShared = [{
+  properties: {
+    _highlightData: {
+      type: Object,
+      notify: true,
+      computed: '_computeChartData(crosshairData.timeStamps.*, drawWithLocalCrosshairData)'
+    },
+
+    /**
+    * A dev set boolean specifying if the chart is for a parallel coordinates chart
+    *
+    */
+    parallelCoordinates: {
+      type: Boolean,
+      value: false
+    },
+    /**
+    * A dev set boolean specifying if the line is using radial(polar) data
+    *
+    */
+    radialLine: {
+      type: Boolean,
+      value: false
+    }
+  },
+
+  /**
+   * Draws the crosshair elements and sets up listeners and callbacks on chart hover
+   * Sets the crosshairData property which gets passed to the register.
+   *
+   */
+  _computeChartData: function() {
+    //if we are generating data locally and not being told to draw anyways, dont draw
+    // but if we have cleared our dataset, then we do want to clear our datapoints
+    if(this.generatingCrosshairData && !this.drawWithLocalCrosshairData && this.crosshairData.rawData.length > 0) {
+      return [];
+    }
+
+    var dataset = this.differentDataset ? this._calcDataset() : this.crosshairData.rawData;
+
+    if(this.showTooltipData) {
+      this._setTooltipDataMultiLine(dataset);
+    }
+
+    return dataset;
+  },
+
+
+  _setTooltipDataMultiLine: function(dataset) {
+    var d;
+    if(dataset.length && dataset[0]) {
+      d = this._createMultilineTooltipData(dataset[0], false);
+      this.set('defaultEmptyData', d);
+      this.dispatchEvent(new CustomEvent('px-vis-axis-interaction-space-tooltip-data', { bubbles: true, composed: true, detail: this.defaultEmptyData }));
+
+    } else {
+      d = this._resetMultilineTooltipData();
+      this.set('defaultEmptyData', d);
+      this.dispatchEvent(new CustomEvent('px-vis-axis-interaction-space-reset-tooltip', { bubbles: true, composed: true, detail: this.defaultEmptyData}));
+    }
+  },
+
+  _resetMultilineTooltipData: function() {
+
+    return {
+        "mouse": null,
+        "dataPos": [-1000, -1000],
+        "time": null,
+        "dataset": null,
+        'series': [],
+        "color": null,
+        "tooltipConfig": null
+      };
+  },
+
+  _createMultilineTooltipData: function(dataset, svg) {
+    var last = this.dimensions[this.dimensions.length-1],
+        data,     //our tooltipData obj
+        screenX,  //the mouse x on the scree
+        screenY,  //the mouse y on the scree
+        svgBounding,  //bounding rect of our svg
+        tooltipConfig = {},  //a fake configuration object we will build
+        value = {},          //the series obj within tooltipData
+        series = [];
+
+      // FIXME run on resize and wrap in animationFrame. Maybe at chart level?
+      svgBounding = this.svg ? this.svg.node().ownerSVGElement.getBoundingClientRect() : this.canvasContext.canvas.getBoundingClientRect();
+
+      //calc the screen positions for the tooltip
+      if(this.radialLine) {
+        screenX = this.y(dataset[last]) * Math.sin(this.x(last)) + this.width/2 + svgBounding.left + window.pageXOffset;
+        screenY = this.y(dataset[last]) * Math.cos(Math.PI - this.x(last)) + this.smallerSide/2 + svgBounding.top + window.pageYOffset;
+
+      } else {
+        screenX = this.x(last) + svgBounding.left + window.pageXOffset + 15;
+        screenY = this.y[last](dataset[last]) + this.margin.top + svgBounding.top + window.pageYOffset;
+      }
+
+      for(var i = 0; i < this.dimensions.length; i++) {
+        var aid = this.dimensions[i];
+        //create our fake configuration object
+        tooltipConfig[aid] = {};
+
+        //if using categories, use it, otherwise default
+        tooltipConfig[aid]["color"] = this.categoryKey ? this.completeSeriesConfig[this.categoryKey]["color"] : this.completeSeriesConfig[this.seriesId]["color"];
+
+        //if title is specified, use it, otherwiuse id
+        tooltipConfig[aid]["name"] = this.completeSeriesConfig[aid] && this.completeSeriesConfig[aid]['title'] ? this.completeSeriesConfig[aid]["title"] : aid;
+
+        //if there is a unit, add it
+        tooltipConfig[aid]["yAxisUnit"] = this.completeSeriesConfig[aid] && this.completeSeriesConfig[aid]["yAxisUnit"] ? this.completeSeriesConfig[aid]["yAxisUnit"] : '';
+
+        //add the y series id
+        tooltipConfig[aid]['y'] = aid;
+
+        //create our value obj
+        value[aid] = dataset[aid];
+        series.push({ 'name': tooltipConfig[aid]["name"], 'value': value });
+
+      }
+      //create our tooltipData obj
+      data = {
+        "mouse": null,
+        "dataPos": [screenX, screenY],
+        "time": dataset[this.timeData],
+        "dataset": dataset,
+        'series': series,
+        "color": tooltipConfig[aid]["color"],
+        "tooltipConfig": tooltipConfig
+      };
+
+    return data;
+  }
+}, PxVisBehavior.highlightShared, PxVisBehavior.margins];
+
+/*
+    Name:
+    PxVisBehavior.preventWebWorkerSynchronization
+
+    Description:
+    Polymer behavior that provides the preventWebWorkerSynchronization property
+
+    @polymerBehavior PxVisBehavior.preventWebWorkerSynchronization
+*/
+PxVisBehavior.preventWebWorkerSynchronization = {
+  properties: {
+      /**
+       * Prevents the chart from synchronizing its data with a webworker.
+       * This can be turned on to minimize the memory footprint of the
+       * chart
+       * WARNING: turning the synchronization off will:
+       * - prevent the chart from being able to use crosshair feature
+       * - slow down data search for tooltip/register
+       * - slow down calculating extents for the chart if it needs to
+       *
+       * We advise against turning it off but it might be beneficial in
+       * specific scenarios (high number of small charts with minimum
+       * interaction for example)
+       */
+      preventWebWorkerSynchronization: {
+        type: Boolean,
+        value: false
+      }
+  }
+};
+
+/*
+    Name:
+    PxVisBehavior.wwDataSyncCounter
+
+    Description:
+    Polymer behavior that provides the wwDataSyncCounter property
+
+    @polymerBehavior PxVisBehavior.wwDataSyncCounter
+*/
+PxVisBehavior.wwDataSyncCounter = {
+  properties: {
+    /**
+     *  Updated every time the chart gets new data and a sync request
+     * to the web worker happened. Use it for triggering observers
+     * instead of chartData if the observer needs the data in the webworker
+     * (i.e kicking another webworker processing)
+     */
+    wwDataSyncCounter: {
+      type: Boolean,
+      value: false
+    }
+  }
+};
+
+/*
+    Name:
+    PxVisBehavior.stripProperties
+
+    Description:
+    Polymer behavior that provides the stripProperties property
+
+    @polymerBehavior PxVisBehavior.stripProperties
+*/
+PxVisBehavior.stripProperties = {
+  properties: {
+    /**
+     * Configuration file for the striping.
+     *
+     * Example:
+     * {
+     *  "stripe1": {
+     *       fillColor: "rgb(255,0,0)",
+     *       fillOpacity: 0.5
+     *  },
+     *  "stripe2": {
+     *       fillColor: "rgb(0, 255,0)",
+     *       fillOpacity: 0.5
+     *   }
+     * }
+     */
+    stripeConfig: {
+      type: Object
+    },
+    /**
+     * Data to create the striping. A list of start and end pairs for each strip type
+     *
+     * Example:
+     * {
+     *  "stripe1": [
+     *    [t1, t2],
+     *    [t3, t4]
+     * ],
+     *  "stripe2": [
+     *    [t5, t6],
+     *    [t7, t8]
+     * ]
+     * }
+     */
+    stripeData: {
+      type: Object,
+      notify: true,
+      value: function() { return {}; }
+    },
+    stripeType: {
+      type: String
+    }
+  }
+};
 </script>

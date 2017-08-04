@@ -1,12 +1,114 @@
-v1.2.1
+v2.1.9
 ==================
-* bumping version for date-time-common
+* Ensure properties of a predefined toolbar config can be overriden
+* Fix getImage() width for radar
 
+v2.1.8
 ==================
+* various fixes to markers
+
+v2.1.7
+==================
+* Fix for axis interaction space position on right and bottom axis (effectively fixing problem where right positioned axis couldn't be dragged in multi Y)
+* Ensure multi axis can handle changing all its axes to the same number of new axis
+
+v2.1.6
+==================
+* fix semantic error preventing IE from  loading PxVisBehaviorChart
+
+v2.1.5
+==================
+* Ensure + and - zooming button set the appropriate extentsAction
+
+v2.1.4
+==================
+* Ensure axis get redrawn when moving a chart around the dom
+
+v2.1.3
+==================
+* Ensure striping component won't try to draw on empty data
+
+v2.1.2
+==================
+* Fix for markers on the bottom
+* fix for parallel and radar register color bug
+
+v2.1.1
+==================
+* Add ability to dynamically add canvases.
+* Fixed behavor imports on several components
+
+v2.1.0
+==================
+* Add striping component
+* Add marker component
+* Edits to toolbar and interaction space for striping
+* Added to highlight, striping, and line-cursor to overview and demos
+* Moved data converter methods into behavior
+* Added muting capabilities for categories registers
+* ensure fuzz factor for crosshair is always coerced to a number
+* Ensure scales are not recreated when not needed (solving a reset zoom problem on resize)
+* fixed bugs with brushes and axis interaction space
+* fixed zoom resetting on resize bug
+* fixed zoom toolbar bug/inconsistency
+* added ability to register custom scripts to the web workers
+  * scheduler will run said custom functions and they have access to the chartData
+
+v2.0.8
+==================
+* Ensure markeScale is only applied to the marker size itself rather than the whole canvas
+
+v2.0.7
+==================
+* Reset uniqueIds array to empty on detached instead of null
+
+v2.0.6
+==================
+* Fixes to binary search in crosshair
+
+v2.0.5
+==================
+* Improved performance of scatter canvas rendering
+* removed debugging values from line canvas
+
+v2.0.4
+==================
+* Fixed line drawing issue on canvas with undefined values while doing progressive rendering with no showGaps
+* Fixed single radial line for canvas (polar)
+
+v2.0.3
+==================
+* Permenant fix for scale bug - changes default extents to all dynamic
+* fixed scale fallback to be in sync with ww scale
+
+v2.0.2
+==================
+* Fix for scale bug
+
+v2.0.1
+==================
+* ensure getImage() doesn't throw error when trying to render registers and no completeSeriesConfig is defined
+
+v2.0.0
+==================
+* created a point highlighter and line highlighter for crosshair
+* created ability to generate crosshair data in interaction-space
+* major refactoring of interaction-space
+* crosshair highlighters have ability to highlight same point or fuzzy search around that point
+* Converted axis-brush to axis-interaction-space
+* Moved axis drag into axis-interaction-space
+* Moved tooltip calcs from parallel and radar into axis-interaction-space
+* Set up action config and action mapping to enable toolbar configuration for axis-interaction-space
+* fixed canvas clearing issue when using scatter and line at the same time
+* added canvas support for radial line and radial scatter
 * Merge PR removing clearfix
 * Merge PR adding dash line options
 * style changes for dash line to match spec
 * added --px-register-series-marker-width so devs can control thickness of register markers
+
+v1.2.1
+==================
+* bumping version for date-time-common
 
 v1.1.14
 ==================

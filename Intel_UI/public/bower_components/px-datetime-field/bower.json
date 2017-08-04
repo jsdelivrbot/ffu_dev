@@ -1,11 +1,10 @@
 {
   "name": "px-datetime-field",
-  "version": "0.7.0",
+  "version": "0.6.14",
   "main": [
     "px-datetime-field.html"
   ],
   "ignore": [
-    "*.enc",
     ".*",
     "node_modules",
     "bower_components",
@@ -28,7 +27,7 @@
   "dependencies": {
     "polymer": "^1.6.1",
     "px-theme": "^2.0.1",
-    "px-datetime-common": "^0.8.0"
+    "px-datetime-common": "^0.7.0"
   },
   "devDependencies": {
     "px-starter-kit-design": "^0.7.0",

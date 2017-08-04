@@ -3,8 +3,7 @@
 <link rel="import" href="px-vis-behavior-chart.html" />
 <link rel="import" href="px-vis-behavior-d3.html" />
 <link rel="import" href="px-vis-axis.html"/>
-<link rel="import" href="px-vis-axis-brush.html"/>
-<link rel="import" href="px-vis-behavior-axis-drag.html"/>
+<link rel="import" href="px-vis-axis-interaction-space.html"/>
 <link rel="import" href="../px-colors-design/colors.html" />
 
 <!--
@@ -86,9 +85,9 @@ Custom property | Description | Default
     <template>
       <style include="px-vis-styles"></style>
       <px-vis-axis
-        id="[[dimension]]"
+        id="axis_[[dimension]]"
         class="interactiveAxis"
-        svg="[[_interactiveGroup]]"
+        svg="[[_axisGroup]]"
         axis="[[y]]"
         series-id="[[dimension]]"
         height="[[height]]"
@@ -122,25 +121,34 @@ Custom property | Description | Default
         rebuild-on-draw="[[_rebuildOnDraw]]"
         prevent-initial-drawing="[[preventInitialDrawing]]">
       </px-vis-axis>
-      <template is="dom-if" if="[[!disableBrush]]">
-        <px-vis-axis-brush
-          id="axisBrush"
-          svg="[[_interactiveGroup]]"
-          parent-svg="[[svg]]"
-          height="[[height]]"
-          axis="[[y]]"
-          margin="[[margin]]"
-          chart-data="[[chartData]]"
-          dimension="[[dimension]]"
-          series-key="[[seriesKey]]"
-          domain-changed="[[domainChanged]]"
-          muted-series="{{mutedSeries}}"
-          radial="[[radial]]"
-          center-offset="[[centerOffset]]"
-          brush-to-remove="[[brushToRemove]]"
-          brush-domains="[[brushDomains]]">
-        </px-vis-axis-brush>
-      </template>
+      <px-vis-axis-interaction-space
+        id="axisIS"
+        svg="[[_interactiveGroup]]"
+        width="[[width]]"
+        height="[[height]]"
+        margin="[[margin]]"
+        x="[[x]]"
+        y="[[y]]"
+        domain-changed="[[domainChanged]]"
+        complete-series-config="[[completeSeriesConfig]]"
+        dimension="[[dimension]]"
+        dimensions="[[dimensions]]"
+        series-key="[[seriesKey]]"
+        category-key="[[categoryKey]]"
+        chart-data="[[chartData]]"
+        muted-series="{{mutedSeries}}"
+        radial="[[radial]]"
+        center-offset="[[centerOffset]]"
+        smaller-side="[[smallerSide]]"
+        brush-to-remove="[[brushToRemove]]"
+        brush-domains="[[brushDomains]]"
+        drag-container-elem="[[_returnDragContainer(svg)]]"
+        cartesian-drag-behavior="[[cartesianDragBehavior]]"
+        redraw-series="[[redrawSeries]]"
+        dynamic-redraw="[[dynamicRedraw]]"
+        action-config="[[actionConfig]]"
+        orientation="[[orientation]]">
+      </px-vis-axis-interaction-space>
     </template>
 </dom-module>
 
@@ -165,11 +173,12 @@ Custom property | Description | Default
       PxVisBehavior.radial,
       PxVisBehaviorD3.radialAxisConfig,
       PxVisBehavior.seriesToAxes,
-      PxVisBehaviorDrag.parallelAxisDrag,
-      PxVisBehaviorDrag.cartesianDrag,
       PxColorsBehavior.baseColors,
       PxVisBehaviorChart.subConfiguration,
-      PxVisBehavior.preventInitialDrawing
+      PxVisBehavior.preventInitialDrawing,
+      PxVisBehavior.categories,
+      PxVisBehavior.actionConfigGeneric,
+      PxVisBehavior.interactionSpaceConfigGeneric
     ],
 
     /**
@@ -200,13 +209,6 @@ Custom property | Description | Default
        *
        */
       brushElems: {
-        type: Object
-      },
-      /**
-       * A holder for the drag behavior
-       *
-       */
-      dragBehavior: {
         type: Object
       },
 
@@ -297,8 +299,7 @@ Custom property | Description | Default
       },
       cartesianDragBehavior: {
         type: Boolean,
-        value: false,
-        observer: '_setDragBehavior'
+        value: false
       },
       _pokeOrientation: {
         type: Boolean,
@@ -336,12 +337,25 @@ Custom property | Description | Default
       hideAndShowOnHover: {
         type: Boolean,
         value: false
+      },
+
+      _axisGroup: {
+        type: Object
+      },
+      smallerSide: {
+        type: Number,
+        value: 0
+      },
+      _isDirty: {
+        type: Boolean,
+        value: false
       }
     },
 
     observers: [
       '_axisConfigChanged(axisConfig.*)',
-      '_createGroup(domainChanged, x, svg, dragBehavior)'
+      '_createGroup(domainChanged, x, svg)',
+      '_interactionSpaceConfigChanged(interactionSpaceConfig.*)'
     ],
 
     listeners:{
@@ -349,6 +363,24 @@ Custom property | Description | Default
       "dom-change": '_axisConfigChanged'
     },
 
+    attached: function() {
+      if(this._isDirty) {
+        this._createGroup();
+        this._isDirty = false;
+      }
+    },
+
+    detached: function() {
+      if(this._doesD3HaveValues(this._interactiveGroup)) {
+        this._interactiveGroup.remove();
+        this._interactiveGroup = null;
+      }
+      this._isDirty = true;
+    },
+
+    _returnDragContainer: function() {
+      return this.svg.node();
+    },
     _setDragBehavior: function() {
       if(this.cartesianDragBehavior) {
         this.createCartesianDrag();
@@ -359,85 +391,41 @@ Custom property | Description | Default
 
     _axisConfigChanged: function(conf) {
       if(this.axisConfig && this.dimension) {
-        this._applyConfigToElement(this.axisConfig, this.$$('#' + this.dimension));
+        this._applyConfigToElement(this.axisConfig, this.$$('#axis_' + this.dimension));
       }
     },
+
+    _interactionSpaceConfigChanged: function(conf) {
+      if(this.interactionSpaceConfig && this.dimension) {
+        this._applyConfigToElement(this.interactionSpaceConfig, this.$$('#axisIS'));
+      }
+    },
+
 
     /**
      * Generates a group elem for each dimension and moves it into the correct x coordinate
      *
      */
     _createGroup: function() {
-      // this.debounce('createInteractiveGroup', function() {
-        if(this._doesD3HaveValues(this.svg)) {
-          var _this = this;
-              // resetTitles = false,
-              // removed = this.svg.selectAll(".dimension").data().filter(function(d){
-              //   if(_this.dimensions.indexOf(d) === -1){
-              //     // _this.$.axisBrush.clearBrush(d);
-              //     delete _this.displayedValues[d];
-              //     resetTitles = true;
-              //     return true
-              //   }
-              //   return false
-              // });
-          if(this._isD3Empty(this._interactiveGroup)) {
-            var g = this.svg.append('g')
-              .attr("class", "dimension")
-              // .attr("axis-number", function(d,i) { return i; })
-              .attr("dimension", this.dimension)
-              .on('mousemove', function() {
-                // TODO add a check that we want it to fire these events?
+      if(this._doesD3HaveValues(this.svg)) {
+        var _this = this;
 
-                // Dont know why, but need to do this calc before the debounce
-                var m = Px.d3.mouse(this),
-                    elem = this;
+        if(this._isD3Empty(this._interactiveGroup)) {
+          var g = this.svg.append('g')
+            .attr("class", "dimension")
+            .attr("dimension", this.dimension);
 
-                _this.debounce('axisMouseMove', function() {
-                  var deets = {
-                    'axis': _this.dimension,
-                    'elem': elem,
-                    'mousePos': m
-                  }
-                  _this.fire('px-vis-multi-axis-mousemove', deets);
-                }, 10);
-              })
-              .on('mouseleave',function(){
-                var deets = {
-                  'axis': _this.dimension,
-                  'elem': this,
-                  'mousePos': Px.d3.mouse(this)
-                }
-                //timeout until after out move debounce to make sure the move doesnt fire after
-                setTimeout(function(){ _this.fire('px-vis-multi-axis-mouseleave', deets); }, 11);
-              })
-              .style("cursor","move")
-              .call(this.dragBehavior);
+          this._interactiveGroup = g;
 
-            this._interactiveGroup = g;
-          }
-
-          this._interactiveGroup.attr("transform", this._calcTransformation.bind(this));
-
-          // if we removed titles from the array make sure we notify
-          // if(resetTitles) {
-          //   var newValues = this.displayedValues;
-          //   this.displayedValues = {};
-          //   this.set('displayedValues', newValues);
-          // }
-
-          // this.set('axisGroups', this.svg.selectAll(".dimension"));
-          // this.set('brushElems', this.axisGroups.selectAll('g.brush').nodes());
-
-          //poke the titles
-          // this.set('_pokeTitleLocation',!this._pokeTitleLocation);
-
-          //sometime after draw (doesnt entirely matter when since it is for an interaction piece), move the brushes on top of everything so they dont get interrupted by other things drawn on top
-          setTimeout(function() {
-            this._interactiveGroup.select('g.brush').raise();
-          }.bind(this), 200);
+          //create a separate subgroup for the axis so it doesnt interfere with our interaction-space
+          this._axisGroup = this._interactiveGroup.append('g')
+            .attr("class", "axis-g");
+        } else {
+          this._interactiveGroup.attr("dimension", this.dimension);
         }
-      // }, 10);
+
+        this._interactiveGroup.attr("transform", this._calcTransformation.bind(this));
+      }
     },
 
     _calcTransformation: function() {
@@ -482,30 +470,17 @@ Custom property | Description | Default
             _this._interactiveGroup.selectAll('.hideCommon').style('fill',"black")
           });
 
-          // this.set('recalcTicks', !this.recalcTicks);
         } else if(this._commonAxisRanAtLeastOnce) {
 
           this._interactiveGroup.selectAll('.hideCommon').style('display',null);
           this._interactiveGroup.selectAll('.hideCommon').classed('hideCommon',false);
 
-          // this.set('recalcTicks', !this.recalcTicks);
         }
       }
     },
 
-    // /*
-    //  * Deletes the brushes on its children axes
-    //  *
-    //  */
-    // deleteBrush: function() {
-    //   this.$.axisBrush.deleteAllBrushes();
-    // },
-
-
-
     recalcTranform: function() {
       this._interactiveGroup.attr("transform", this._calcTransformation.bind(this));
     }
-
   });
 </script>

@@ -1,3 +1,4 @@
+
 package com.ge.predix.solsvc.training.query.data_query.handler;
 
 
@@ -5,7 +6,6 @@ package com.ge.predix.solsvc.training.query.data_query.handler;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -20,7 +20,7 @@ import javax.activation.DataHandler;
 import javax.annotation.PostConstruct;
 
 
-import org.apache.http.Header;
+
 import org.apache.http.HttpResponse;
 import org.apache.http.ParseException;
 import org.apache.http.client.ClientProtocolException;
@@ -36,7 +36,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.core.type.TypeReference;
+
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ge.predix.solsvc.bootstrap.tsb.client.TimeseriesWSConfig;
@@ -87,7 +87,7 @@ public class DataQueryHandler
     
     private static final String PZID = "Predix-Zone-Id";
     
-    private static final String[] TAGS = {"Soft_Fail_Detected","Differential_Energy_Reference","Differential_Energy","Alarm_Level","DE_Alarm_Level",
+    private static final String[] TAGS = {"SoftFailDetected","Differential_Energy_Reference","Differential_Energy","DE_Alarm_Level",
     										"X_Acceleration_Avg","Y_Acceleration_Avg","Z_Acceleration_Avg"};
    
     private static final String[] HARDTAGS = {"HardFailDetected","AvgResult","MeanResult","StdDevResult","HeartBeat_Fault"};
@@ -138,6 +138,7 @@ public class DataQueryHandler
 	 */
 	public void startTSMonitor() {
 		 try {
+			 log.info("Getting TS startTSMonitor.");
 			 	Properties prop = new Properties();
 				String propFileName = "config.properties";
 				InputStream inputStream = getClass().getClassLoader().getResourceAsStream(propFileName);
@@ -159,6 +160,7 @@ public class DataQueryHandler
 							mapSF.put(tags, tags);
 						}
 					}
+					
 					this.softFailMonitor(mapSF);
 					this.hardFailMonitor(mapHF);
 				} catch (Exception e) {
@@ -602,6 +604,7 @@ public class DataQueryHandler
 	private TagsDTO getTags() {
 		
 		 try {
+			 log.info("Getting TS tags.");
 			 Properties prop = new Properties();
 				String propFileName = "config.properties";
 				InputStream inputStream = getClass().getClassLoader().getResourceAsStream(propFileName);
@@ -668,7 +671,6 @@ public class DataQueryHandler
 				ObjectMapper mapper = new ObjectMapper();
 
 				try {
-					
 					TagsDTO tags = mapper.readValue(result, TagsDTO.class);
 					return tags;
 				
@@ -692,20 +694,10 @@ public class DataQueryHandler
 	 */
 	public SFailuresDTO softFailures(FanParamsDTO param) {
 		try {
-			log.info("GATEWAY_FAN= "+param.getGateway().concat("_").concat(param.getFan().concat("_")));
-			String	authorization = null;
 			String gwFan = param.getGateway().concat("_").concat(param.getFan().concat("_"));
-			try {
-			List<Header> lHead = restClient.getSecureTokenForClientId();
-        	for (Header header : lHead) {
-        		authorization = header.getValue();
-			}
-        	} catch (Exception e) {
-				// TODO: handle exception
-			}
-        	TenantContext tenant = TenantContextFactory.createQueryTenantContextFromProvidedProperties
-        			("https://time-series-store-predix.run.aws-usw02-pr.ice.predix.io/v1/datapoints",
-        					authorization,this.PZID,this.tsInjectionWSConfig.getZoneId());
+			TenantContext tenant = TenantContextFactory.createQueryTenantContextFromProvidedProperties
+        			("https://time-series-store-predix.run.aws-usw02-pr.ice.predix.io/v1/datapoints/latest",
+        					this.getTokenByBasicAuth(),this.PZID,this.tsInjectionWSConfig.getZoneId());
         QueryBuilder builder = null;
         
         List<String> tsTagsList = new ArrayList<>();
@@ -729,35 +721,36 @@ public class DataQueryHandler
 		FailuresStsDTO failuresDto = new FailuresStsDTO();
 		SFailuresDTO dto = new  SFailuresDTO();
     	failuresDto.setResult("Timestamp");
-    	log.info("GATEWAY_FAN_REDIS "+gwFan.concat("Soft_Fail_Detected_TimestampS"));
-    	failuresDto.setValue(redis.get(gwFan.concat("Soft_Fail_Detected_TimestampS")).concat(prop.getProperty("sdf.timeStampHMS")));
-		failuresDto.setUnits("");
+    	log.info("GATEWAY_FAN_REDIS "+gwFan.concat("SoftFailDetected_TimestampS"));
+    	Timestamp timestamp = null;
+    	SimpleDateFormat dateFormat = new SimpleDateFormat(prop.getProperty("sdf.timeStamp"));
+    	
+    	if(redis!=null && redis.get(gwFan.concat("SoftFailDetected_TimestampS"))!=null){
+    	failuresDto.setValue(redis.get(gwFan.concat("SoftFailDetected_TimestampS")).concat(prop.getProperty("sdf.timeStampHMS")));
+	    Date parsedDate = dateFormat.parse(redis.get(gwFan.concat("SoftFailDetected_TimestampS")));
+	    timestamp = new java.sql.Timestamp(parsedDate.getTime());
+    	}
+    	else{
+    		failuresDto.setValue(prop.getProperty("msg.softFailure.noValue"));
+    		Date parsedDate = Calendar.getInstance().getTime();
+    	    timestamp = new java.sql.Timestamp(parsedDate.getTime());
+    	}
+    	failuresDto.setUnits("");
 		dto.getSoftFailures().add(failuresDto);
-		
-		Timestamp timestamp = null;
-		try{
-		    SimpleDateFormat dateFormat = new SimpleDateFormat(prop.getProperty("sdf.timeStamp"));
-		    Date parsedDate = dateFormat.parse(redis.get(gwFan.concat("Soft_Fail_Detected_TimestampS")));
-		    timestamp = new java.sql.Timestamp(parsedDate.getTime());
-		}catch(Exception e){//this generic but you can control another types of exception
-		
-		}
-			builder = QueryBuilder.createQuery()
-        	        .withStartAbs(timestamp.getTime()-60000)
-        	        .withEndAbs(timestamp.getTime()+60000)
-        	        .addTags(QueryTag.Builder.createQueryTag().withTagNames(tsTagsList).withLimit(100000).build());
-	    	
-        	QueryResponse response = ClientFactory.queryClientForTenant(tenant).queryAll(builder.build());
+			builder = QueryBuilder.createQuery().withStartAbs((long)0).addTags(QueryTag.Builder.createQueryTag().withTagNames(tsTagsList).build());
+	    	QueryResponse response = ClientFactory.queryClientForTenant(tenant).queryAll(builder.build());
         	String sHealth = null;
         	TreeMap<String, String> mapTags = new TreeMap<>();
         	for (TagResponse tagResp : response.getTags()) {
         		log.info("RESPONSE NAME: "+tagResp.getName());
         		failuresDto = new FailuresStsDTO();
-        		failuresDto.setResult(tagResp.getName().replace("Soft_Fail_Detected","Status")
+        		failuresDto.setResult(tagResp.getName().replace("SoftFailDetected","Status")
         				.replace("Differential_Energy_Reference","Diff Energy Reference").replace("Differential_Energy","Diff Energy Average")
         				.replace("DE_Alarm_Level","Diff Energy Alarm Level").replace("X_Acceleration_Avg","X Acceleration Average")
         				.replace("Y_Acceleration_Avg","Y Acceleration Average").replace("Z_Acceleration_Avg","Z Acceleration Average").replace(gwFan, ""));
         		for (Result reslt : tagResp.getResults()) {
+        			
+        			if(reslt.getDataPoints()!=null && !reslt.getDataPoints().isEmpty()){
 					for (DataPoint dtp : reslt.getDataPoints()) {
 						sHealth = dtp.getQuality().toString();
 						if(failuresDto.getResult().contains("Status") && dtp.getValue().toString().equals("0") )
@@ -774,7 +767,7 @@ public class DataQueryHandler
 						failuresDto.setUnits("");
 						else
 							failuresDto.setUnits("g");
-						if(!mapTags.containsKey(tagResp.getName().replace("Soft_Fail_Detected","Status")
+						if(!mapTags.containsKey(tagResp.getName().replace("SoftFailDetected","Status")
 		        				.replace("Differential_Energy_Reference","Diff Energy Reference").replace("Differential_Energy","Diff Energy Average")
 		        				.replace("DE_Alarm_Level","Diff Energy Alarm Level").replace("X_Acceleration_Avg","X Acceleration Average")
 		        				.replace("Y_Acceleration_Avg","Y Acceleration Average").replace("Z_Acceleration_Avg","Z Acceleration Average").replace(gwFan, ""))){
@@ -785,15 +778,20 @@ public class DataQueryHandler
 		        				.replace("AvgResult", "Change in Average").replace("MeanResult", "Change in Mean")
 		        				.replace("StdDevResult","Change in Std Deviation").replace("HeartBeat","Sensor Fault").replace(gwFan, ""));
 								}
+					}}else{
+						failuresDto.setValue(prop.getProperty("msg.noTimeSeries.data"));
+			        	failuresDto.setUnits("");
+			    		dto.getSoftFailures().add(failuresDto);
 					}
 				}
         	}
-        	
+        	if(sHealth!=null){
         	failuresDto = new FailuresStsDTO();
         	failuresDto.setResult("Sensor Health");
         	failuresDto.setValue(sHealth);
     		failuresDto.setUnits("");
     		dto.getSoftFailures().add(failuresDto);
+        	}
     		
         	tenant = null;
         	builder = null;
@@ -813,19 +811,10 @@ public class DataQueryHandler
 	 */
 	public HFailuresDTO hardFailures(FanParamsDTO param) {
 		try {
-			String	authorization = null;
 			String gwFan = param.getGateway().concat("_").concat(param.getFan().concat("_"));
-			try {
-			List<Header> lHead = restClient.getSecureTokenForClientId();
-        	for (Header header : lHead) {
-        		authorization = header.getValue();
-			}
-        	} catch (Exception e) {
-				// TODO: handle exception
-			}
-        	TenantContext tenant = TenantContextFactory.createQueryTenantContextFromProvidedProperties
-        			("https://time-series-store-predix.run.aws-usw02-pr.ice.predix.io/v1/datapoints",
-        					authorization,this.PZID,this.tsInjectionWSConfig.getZoneId());
+			TenantContext tenant = TenantContextFactory.createQueryTenantContextFromProvidedProperties
+        			("https://time-series-store-predix.run.aws-usw02-pr.ice.predix.io/v1/datapoints/latest",
+        					this.getTokenByBasicAuth(),this.PZID,this.tsInjectionWSConfig.getZoneId());
         QueryBuilder builder = null;
         
         List<String> tsTagsList = new ArrayList<>();
@@ -847,26 +836,27 @@ public class DataQueryHandler
 		Jedis redis = null;
 		redis = redisPool.getResource();
 		FailuresStsDTO failuresDto = new FailuresStsDTO();
-		HFailuresDTO dto = new  HFailuresDTO();
+		Timestamp timestamp = null;
+		SimpleDateFormat dateFormat = new SimpleDateFormat(prop.getProperty("sdf.timeStamp"));
+	    HFailuresDTO dto = new  HFailuresDTO();
     	failuresDto.setResult("Timestamp");
+    	
+    	if(redis!=null && redis.get(gwFan.concat("HardFailDetected_TimestampH"))!=null){
     	failuresDto.setValue(redis.get(gwFan.concat("HardFailDetected_TimestampH")).concat(prop.getProperty("sdf.timeStampHMS")));
-		failuresDto.setUnits("");
+    	Date parsedDate = dateFormat.parse(redis.get(gwFan.concat("HardFailDetected_TimestampH")));
+	    timestamp = new java.sql.Timestamp(parsedDate.getTime());
+    	}else{
+    		failuresDto.setValue(prop.getProperty("msg.hardFailure.noValue"));
+    		Date parsedDate = Calendar.getInstance().getTime();
+    	    timestamp = new java.sql.Timestamp(parsedDate.getTime());
+    		}
+    	failuresDto.setUnits("");
 		dto.getHardFailures().add(failuresDto);
 		
-		Timestamp timestamp = null;
-		try{
-		    SimpleDateFormat dateFormat = new SimpleDateFormat(prop.getProperty("sdf.timeStamp"));
-		    Date parsedDate = dateFormat.parse(redis.get(gwFan.concat("HardFailDetected_TimestampH")));
-		    timestamp = new java.sql.Timestamp(parsedDate.getTime());
-		}catch(Exception e){//this generic but you can control another types of exception
-		
-		}
-			builder = QueryBuilder.createQuery()
-        	        .withStartAbs(timestamp.getTime()-60000)
-        	        .withEndAbs(timestamp.getTime()+60000)
-        	        .addTags(QueryTag.Builder.createQueryTag().withTagNames(tsTagsList).withLimit(100000).build());
+			builder = QueryBuilder.createQuery().withStartAbs((long)0).addTags(QueryTag.Builder.createQueryTag().withTagNames(tsTagsList).build());
 			QueryResponse response = ClientFactory.queryClientForTenant(tenant).queryAll(builder.build());
         	TreeMap<String, String> mapTags = new TreeMap<>();
+        	if(response!=null)
         	for (TagResponse tagResp : response.getTags()) {
         		failuresDto = new FailuresStsDTO();
         		log.info("TS TAG NAME..... "+tagResp.getName());
@@ -874,6 +864,8 @@ public class DataQueryHandler
         				.replace("AvgResult", "Change in Average").replace("MeanResult", "Change in Mean")
         				.replace("StdDevResult","Change in Std Deviation").replace("HeartBeat_Fault","Sensor Fault").replace(gwFan, ""));
         		for (Result reslt : tagResp.getResults()) {
+        			
+        			if(reslt.getDataPoints()!=null && !reslt.getDataPoints().isEmpty()){
 					for (DataPoint dtp : reslt.getDataPoints()) {
 						log.info("TAG NAME>>>>>>"+failuresDto.getResult()+  "STATUS VALUE>:>>>>>>>>>>>> "+dtp.getValue().toString());
 						if(failuresDto.getResult().contains("Status") && dtp.getValue().toString().equals("0") )
@@ -903,8 +895,19 @@ public class DataQueryHandler
         				.replace("AvgResult", "Change in Average").replace("MeanResult", "Change in Mean")
         				.replace("StdDevResult","Change in Std Deviation").replace("HeartBeat","Sensor Fault").replace(gwFan, ""));
 						}
+					}}else{
+						failuresDto.setValue(prop.getProperty("msg.noTimeSeries.data"));
+						failuresDto.setUnits("");
+						dto.getHardFailures().add(failuresDto);
 					}
 				}
+        	}else{
+        		failuresDto = new FailuresStsDTO();
+        		failuresDto.setResult(prop.getProperty("msg.noTimeSeries.data"));
+        		failuresDto.setValue(prop.getProperty("msg.noTimeSeries.data"));
+				failuresDto.setUnits("");
+				dto.getHardFailures().add(failuresDto);
+        		
         	}
         	tenant = null;
         	builder = null;
@@ -916,6 +919,59 @@ public class DataQueryHandler
 		}finally {
 			System.gc();
 			Runtime.getRuntime().gc();
+		}
+	}
+	/**
+	 * @return -
+	 */
+	private String getTokenByBasicAuth() {
+		try {
+			log.info("Token ussing Basic64Encode ");
+			Properties prop = new Properties();
+			String propFileName = "config.properties";
+			InputStream inputStream = getClass().getClassLoader().getResourceAsStream(propFileName);
+			if (inputStream != null) {
+				prop.load(inputStream);
+			} else {
+				throw new FileNotFoundException("property file '" + propFileName + "' not found in the classpath");
+			}
+			String url = prop.getProperty("uaa.URI.token");
+	     	   HttpClient client = HttpClientBuilder.create().build();
+	     	   HttpPost post = new HttpPost(url);
+	     	   post.setHeader("Authorization",prop.getProperty("uaa.basic.auth"));
+	     	   post.setHeader("Content-Type","application/x-www-form-urlencoded");
+	     	   post.setHeader("Accept","application/json");
+	     	   
+	     	   StringEntity postingString;
+	     	   String body="grant_type=client_credentials";
+	     	   	postingString = new StringEntity(body);
+				   post.setEntity(postingString);
+	     		   HttpResponse response = null;
+				try {
+					response = client.execute(post);
+				} catch (ClientProtocolException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+	     		   
+	     		   int responseCode;
+	     		   responseCode = response.getStatusLine().getStatusCode();
+	     		   String result =null;
+	     		   
+	         		   try {
+						result = EntityUtils.toString(response.getEntity());
+					} catch (ParseException e) {
+						e.printStackTrace();
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+	         		   
+	        JSONObject jsonObj = new JSONObject(result);
+	        return "Bearer "+jsonObj.getString("access_token");
+		} catch (Exception e) {
+			e.printStackTrace();
+			return null;
 		}
 	}
 	/**

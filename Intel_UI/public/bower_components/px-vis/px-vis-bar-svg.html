@@ -33,8 +33,8 @@ Unlike most other drawing elements which can use chartData directly, bar require
       svg="[[svg]]"
       complete-series-config="[[seriesConfig]]"
       chart-data="[[stackedChartData]]"
-      iScale="[[x]]"
-      dScale="[[y]]"
+      x="[[x]]"
+      y="[[y]]"
       domain-changed="[[domainChanged]]">
     </px-vis-bar-svg>
 
@@ -70,6 +70,12 @@ Unlike most other drawing elements which can use chartData directly, bar require
       PxColorsBehavior.baseColors,
       PxVisBehavior.preventInitialDrawing
     ],
+
+    /**
+     * px-vis-bar-svg-rendering-ended, fired when an svg bar has finised
+     * drawing
+     * @event px-vis-bar-svg-rendering-ended
+     */
 
     /**
      * Properties block, expose attribute values to the DOM via 'reflect'
@@ -227,7 +233,7 @@ Unlike most other drawing elements which can use chartData directly, bar require
 
       this._addClipPath();
 
-      this.fire('barfinished');
+      this.fire('px-vis-bar-svg-rendering-ended');
     },
 
     _setFuncs: function() {

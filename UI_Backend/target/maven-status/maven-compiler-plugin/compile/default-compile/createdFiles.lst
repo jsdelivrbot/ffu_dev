@@ -9,8 +9,8 @@ com/ge/predix/solsvc/training/ingestion/data_ingestion/handler/TimeSeriesData.cl
 com/ge/predix/solsvc/training/ingestion/data_ingestion/dto/ParamsDTO.class
 com/ge/predix/solsvc/training/ingestion/data_ingestion/websocket/WebSocketClient.class
 com/ge/predix/solsvc/training/ingestion/data_ingestion/dto/QueryParamsDTO.class
-com/ge/predix/solsvc/training/ingestion/data_ingestion/type/RPMData.class
 com/ge/predix/solsvc/training/ingestion/data_ingestion/dto/TagsDTO.class
+com/ge/predix/solsvc/training/ingestion/data_ingestion/type/RPMData.class
 com/ge/predix/solsvc/training/ingestion/data_ingestion/dto/FailuresStsDTO.class
 com/ge/predix/solsvc/training/ingestion/data_ingestion/handler/TimeSeriesDataIngestionHandler.class
 com/ge/predix/solsvc/training/ingestion/data_ingestion/dto/TagStatusDTO.class
@@ -23,12 +23,12 @@ com/ge/predix/solsvc/training/query/data_query/handler/DataQueryHandler.class
 com/ge/predix/solsvc/training/ingestion/data_ingestion/dto/IngestDTO.class
 com/ge/predix/solsvc/training/ingestion/data_ingestion/type/CargoShelfLife.class
 com/ge/predix/solsvc/training/ingestion/data_ingestion/boot/CorsFilter.class
-com/ge/predix/solsvc/training/ingestion/data_ingestion/handler/AssetDataHandler.class
 com/ge/predix/solsvc/training/ingestion/data_ingestion/dto/AdresseeDTO.class
+com/ge/predix/solsvc/training/ingestion/data_ingestion/handler/AssetDataHandler.class
 com/ge/predix/solsvc/training/ingestion/data_ingestion/type/LocomotiveAsset.class
 com/ge/predix/solsvc/training/ingestion/data_ingestion/dto/SimpleResponseDTO.class
-com/ge/predix/solsvc/training/ingestion/data_ingestion/type/JSONData.class
 com/ge/predix/solsvc/training/ingestion/data_ingestion/dto/ResponseDTO.class
+com/ge/predix/solsvc/training/ingestion/data_ingestion/type/JSONData.class
 com/ge/predix/solsvc/training/query/data_query/handler/DataQueryHandler$1.class
 com/ge/predix/solsvc/training/ingestion/data_ingestion/service/DataIngestionServiceController.class
 com/ge/predix/solsvc/training/ingestion/data_ingestion/websocket/WebsocketEndpoint.class
