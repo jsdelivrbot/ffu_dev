@@ -269,16 +269,6 @@ public class DataQueryHandler
 					    {
 					       e.printStackTrace();
 					    }
-					}else {
-						try
-					    {
-					        redis.set(dto.getTag(), "noError");
-					        redis.set(dto.getTag().concat("_TimestampH"),dtPoint.getTimeStamp()+"");
-					    }
-					    catch (JedisConnectionException e)
-					    {
-					       e.printStackTrace();
-					    }
 					}
 				}else{
 					log.info("NO DATA POINTS IN THE INTERVAL FOR THE TAG  "+dto.getTag());
@@ -444,16 +434,6 @@ public class DataQueryHandler
 					    {
 					       e.printStackTrace();
 					    }
-					}else {
-						try
-					    {
-					        redis.set(dto.getTag(), "noError");
-					        redis.set(dto.getTag().concat("_TimestampS"),dtPoint.getTimeStamp()+"");
-					    }
-					    catch (JedisConnectionException e)
-					    {
-					       e.printStackTrace();
-					    }
 					}
 				}else{
 					log.info("NO DATA POINTS IN THE INTERVAL FOR THE TAG  "+dto.getTag());
@@ -575,7 +555,11 @@ public class DataQueryHandler
 					        	tagSTS.setErrorStatus(redis.get(gtID.concat(prop.getProperty("tag.HBF"))));
 					        }else if(redis.get(gtID.concat(prop.getProperty("tag.SFD")))!=null &&  !redis.get(gtID.concat(prop.getProperty("tag.SFD"))).equals("noError")){
 					        	tagSTS.setErrorStatus(redis.get(gtID.concat(prop.getProperty("tag.SFD"))));
-					        }else{
+					        }else if(redis.get(gtID.concat(prop.getProperty("tag.HB")))!=null &&  !redis.get(gtID.concat(prop.getProperty("tag.HB"))).equals("noError")){
+					        	tagSTS.setErrorStatus(redis.get(gtID.concat(prop.getProperty("tag.HB"))));
+					        }
+					        
+					        else{
 					        	tagSTS.setErrorStatus("noError");
 					        }
 					    	if(!filterMap.containsKey(gtID)){
